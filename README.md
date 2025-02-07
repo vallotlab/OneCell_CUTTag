@@ -125,13 +125,13 @@ The **input** folder should have the following sub-directories:
                     └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
 ```
 
-All input files can be downloaded from GEO (XXXXX). They should be placed to the corresponding input sub-folder and named accordingly. 
-/
-The scripts and annotation folders should be cloned from this github repository as they are.
-/
+All input files can be downloaded from GEO (XXXXX). They should be placed to the corresponding input sub-folder and named accordingly.  
+
+The scripts and annotation folders should be cloned from this github repository as they are.  
+
 The sub-folders of the output directory will be created automatically when running the scripts.
-
-
+\
+The html files are provided for each script to demostrate the expected output.
 
 ## 2. Dependencies
 
