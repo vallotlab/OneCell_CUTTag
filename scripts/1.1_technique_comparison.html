@@ -2868,11 +2868,10 @@ outputDir_tables = file.path(outputDir_local, &quot;tables&quot;) ; if(!file.exi
 ld &lt;- list.dirs(inputDir_local)
 fragpaths &lt;- list.files(ld[grepl(&quot;h3k27me3/.*fragmentFiles&quot;, ld)], full.names = TRUE)
 fragpaths &lt;- fragpaths[grepl(&#39;.tsv.gz$&#39;, list.files(ld[grepl(&quot;h3k27me3/.*fragmentFiles&quot;, ld)], full.names = TRUE))]
-fragpaths &lt;- fragpaths[!grepl(&quot;L537&quot;, fragpaths)] 
+fragpaths &lt;- fragpaths[!grepl(&quot;one_cell_multiome&quot;, fragpaths)]
+fragpaths &lt;- fragpaths[!grepl(&quot;auto&quot;, fragpaths)] 
+names(fragpaths) &lt;- sub(&quot;.*MM468/([^/]+)/.*&quot;, &quot;\\1&quot;, fragpaths)
 
-names(fragpaths) &lt;- str_replace(fragpaths, &quot;.*MM468/(.*)/h3k27me3/fragmentFiles.*&quot;, replacement = &quot;\\1&quot;) %&gt;% 
-                                str_replace_all(&quot;/&quot;, replacement = &quot;_&quot;)
-  
 rm(ld)</code></pre>
 </div>
 <div id="loading-annotation" class="section level3" number="1.2">

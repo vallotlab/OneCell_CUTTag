@@ -35,11 +35,10 @@ outputDir_tables = file.path(outputDir_local, "tables") ; if(!file.exists(output
 ld <- list.dirs(inputDir_local)
 fragpaths <- list.files(ld[grepl("h3k27me3/.*fragmentFiles", ld)], full.names = TRUE)
 fragpaths <- fragpaths[grepl('.tsv.gz$', list.files(ld[grepl("h3k27me3/.*fragmentFiles", ld)], full.names = TRUE))]
-fragpaths <- fragpaths[!grepl("L537", fragpaths)] 
+fragpaths <- fragpaths[!grepl("one_cell_multiome", fragpaths)]
+fragpaths <- fragpaths[!grepl("auto", fragpaths)] 
+names(fragpaths) <- sub(".*MM468/([^/]+)/.*", "\\1", fragpaths)
 
-names(fragpaths) <- str_replace(fragpaths, ".*MM468/(.*)/h3k27me3/fragmentFiles.*", replacement = "\\1") %>% 
-                                str_replace_all("/", replacement = "_")
-  
 rm(ld)
 
 ```
