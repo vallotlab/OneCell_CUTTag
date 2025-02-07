@@ -1,6 +1,6 @@
 # OneCell_CUT&Tag
 
-## 1. Setup Instructions - folder structure
+## 1. Setup Instructions
 
 To reproduce the analysis from the Mouteaux & Schwager 2025 paper, the user should create the following folder structure on their local machine : 
 
