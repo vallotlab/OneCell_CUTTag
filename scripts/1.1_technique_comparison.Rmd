@@ -1,0 +1,421 @@
+---
+title: "1.1_technique_comparison"
+author: "Anna Schwager"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+Load the global variables 
+```{r source, message=F, warning=F}
+here::i_am("scripts/1.1_technique_comparison.Rmd")
+mainDir = here::here()
+source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
+source(knitr::purl(file.path(mainDir, "scripts/functions.Rmd"), quiet=TRUE))
+
+set.seed(123)
+```
+
+## Preparation and object creation
+### Setting directories and input files
+```{r input_dirs, message=F, warning=F}
+
+inputDir_local = file.path(inputDir, "hg38", "MM468")
+outputDir_local = file.path(outputDir, "1.1_technique_comparison") ; if(!file.exists(outputDir_local)){dir.create(outputDir_local)}
+outputDir_objects = file.path(outputDir_local, "objects") ; if(!file.exists(outputDir_objects)){dir.create(outputDir_objects)}
+outputDir_plots = file.path(outputDir_local, "plots") ; if(!file.exists(outputDir_plots)){dir.create(outputDir_plots)}
+outputDir_tables = file.path(outputDir_local, "tables") ; if(!file.exists(outputDir_tables)){dir.create(outputDir_tables)}
+
+
+ld <- list.dirs(inputDir_local)
+fragpaths <- list.files(ld[grepl("h3k27me3/.*fragmentFiles", ld)], full.names = TRUE)
+fragpaths <- fragpaths[grepl('.tsv.gz$', list.files(ld[grepl("h3k27me3/.*fragmentFiles", ld)], full.names = TRUE))]
+fragpaths <- fragpaths[!grepl("L537", fragpaths)] 
+
+names(fragpaths) <- str_replace(fragpaths, ".*MM468/(.*)/h3k27me3/fragmentFiles.*", replacement = "\\1") %>% 
+                                str_replace_all("/", replacement = "_")
+  
+rm(ld)
+
+```
+
+### Loading annotation
+```{r annot, message=F, warning=F}
+consensus_peaks_k27 <- toGRanges(file.path(annotDir, "MM468_peaks_h3k27me3.bed"), format="BED", header=FALSE)
+```
+
+### Loading the bulk bigwig
+```{r bw_load, message=F, warning=F}
+bw_bulk <- file.path(inputDir_local, "bigwigs", "MM468_ATCC_hu_WT_AM_m10y22_H3K27me3.bw")
+```
+
+### Creating Seurat objects
+```{r objects, message=F, warning=F, eval=F}
+seurat_list <- list()
+
+for (i in names(fragpaths)){
+    message(paste0("### Making fragment object for ", i))
+    total_counts <- CountFragments(fragpaths[[i]])
+    barcodes <- total_counts$CB
+    frags <- CreateFragmentObject(path = fragpaths[[i]], cells = barcodes)
+    
+    message(paste0("### Making 50k bin matrix for ", i))
+    bin50k_kmatrix = GenomeBinMatrix(
+    frags,
+    genome = hg38,
+    cells = NULL,
+    binsize = 50000,
+    process_n = 10000,
+    sep = c(":", "_"),
+    verbose = TRUE)
+    
+    message(paste0("### Making peak matrix for ", i))
+    peak_matrix = FeatureMatrix(
+      frags,
+      features = consensus_peaks_k27,
+      cells = NULL,
+      sep = c("-", "-"),
+      verbose = TRUE)
+    
+    message(paste0("### Creating chromatin assay for ", i))
+    chrom_assay <- CreateChromatinAssay(
+      counts = bin50k_kmatrix,
+      sep = c(":", "_"),
+      genome = "hg38",
+      fragments = fragpaths[[i]],
+      min.cells = 1,
+      min.features = -1)
+    
+    message(paste0("### Creating Seurat object for ", i))
+    seurat <- CreateSeuratObject(
+      counts = chrom_assay,
+      assay = "bin_50k")
+    
+    seurat[["peaks"]] <- CreateChromatinAssay(
+      counts = peak_matrix, genome = "hg38")
+    
+    Annotation(seurat) <- annotations_hg38
+    
+    seurat <- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
+    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "reads_count")
+    seurat@meta.data[["orig.ident"]] <- i
+    seurat_list[[i]] <- seurat
+    
+    rm(seurat)
+    rm(frags)
+    rm(total_counts)
+    rm(barcodes)
+    rm(fragments_per_cell)
+    rm(bin50k_matrix)
+    rm(peak_matrix)
+    rm(chromatin_assay)
+}
+
+saveRDS(seurat_list, file.path(outputDir_objects, "seurat_list_MM468_h3k27me3.rds"))
+ 
+```
+The list of Seurats is saved to the output to be reloaded later if needed. 
+
+```{r seurat_reload, message=F, warning=F}
+seurat_list <- readRDS(file.path(outputDir_objects, "seurat_list_MM468_h3k27me3.rds"))
+```
+
+## QC
+### Weighted histograms
+```{r qc1, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+for (seurat in seurat_list){
+  p <- plot_weighted_hist(seurat) + ggtitle(print(seurat@meta.data[["orig.ident"]][1]))
+  print(p)
+  ggsave(file.path(outputDir_plots, paste(seurat@meta.data[["orig.ident"]][1], "_wist.pdf")),
+       plot = p,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+}
+```
+### Filtering
+```{r merge_filter, message=F, warning=F}
+min_reads = 500
+max_reads = 70000 # remove 1 outlier cell of 10x
+
+for (p in names(seurat_list)){
+  seurat_list[[p]]$filtering <- ifelse(seurat_list[[p]]$reads_count > min_reads & seurat_list[[p]]$reads_count < max_reads, 'pass', 'fail')
+}
+
+seurat <- merge(seurat_list[["one_cell_cuttag"]],
+              c(seurat_list[["sc_chicseq"]],
+                seurat_list[["sc_chipseq"]],
+                seurat_list[["sc_cuttag_10x"]]))
+
+```
+
+### FrIP and N fragments plots
+
+```{r qc_pa_nano, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+p_frip <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("FRiP"),
+                      group.by = "orig.ident", split.by = NULL, pt.size = 0) +
+                      labs(title = "FRiP MM468 H3K27me3") +
+                      stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                      theme(legend.position = "none") +
+                      scale_fill_manual(values = rep(mypal[3], 4))
+print(p_frip)
+
+
+p_count <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("reads_count"),
+                       group.by = "orig.ident", split.by = NULL, pt.size = 0) +
+                       labs(title = "Fragments per cell MM468 H3K27me3") +
+                       stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                       theme(legend.position = "none")+
+                       scale_fill_manual(values = rep(mypal[3], 4))
+print(p_count)
+```
+
+```{r save1, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "frip.pdf"),
+       plot = p_frip,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 110)
+
+ggsave(file.path(outputDir_plots, "n_fragments.pdf"),
+       plot = p_count,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 110)
+```
+
+
+### Cell numbers
+```{r cell_numbers, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+df_ncells <-data.frame(experiment = rep(NA, length(seurat_list)),
+                       n_barcodes = rep(NA, length(seurat_list)),
+                       n_pass_cells = rep(NA, length(seurat_list)))
+
+for (i in 1:length(seurat_list)){
+  df_ncells$experiment[i] <- seurat_list[[i]]@meta.data[["orig.ident"]][1]
+  df_ncells$n_barcodes[i] <- length(seurat_list[[i]]@meta.data[["CB"]])
+  df_ncells$n_pass_cells[i] <- length(subset(seurat_list[[i]], subset = filtering == 'pass')@meta.data[["CB"]])
+}
+
+#1564255 - OneCell current (only nano both)
+#5831841 - for ChIC-seq
+#261234433 - for ChIP-seq
+#239111939 - for 10x
+
+## these numbers are obtained from fastqs with (gunzip -c *.R1.fastq.gz | wc -l)/4
+## and from the multiQC output of the scEpigenome pipeline 
+
+df_ncells$sequenced_reads <- c(1564255, 5831841, 261234433, 239111939)
+df_ncells$sequenced_reads_per_cell <- df_ncells$sequenced_reads/df_ncells$n_barcodes
+df_ncells$sequenced_reads_per_pass_cell <- df_ncells$sequenced_reads/df_ncells$n_pass_cells
+df_ncells$pct_aligned <- c(87, 74, 54, 84)
+df_ncells$pct_duplicates<- c(69, 16, 22, 99)
+df_ncells$pct_retained_reads <- c(27, 62, 43, 1)
+df_ncells$retained_reads <- df_ncells$sequenced_reads/100 * df_ncells$pct_retained_reads
+df_ncells$retained_reads_per_pass_cell <- df_ncells$retained_reads/df_ncells$n_pass_cells
+
+df_ncells
+
+p_sequnced_reads_log <- ggplot(df_ncells, aes(x = experiment, y = log10(sequenced_reads_per_pass_cell), fill = experiment)) +
+                    geom_col(position = 'dodge', color="black", show.legend = FALSE) +
+                    labs(title="Sequenced reads per passing cell", y = "log10(sequenced reads)") + 
+                    theme_minimal() +
+                    coord_flip() +
+                    scale_fill_manual(values = mypal)
+
+print(p_sequnced_reads_log)
+
+p_aligned_reads <- ggplot(df_ncells, aes(x = experiment, y = pct_aligned, fill = experiment)) +
+                    geom_col(position = 'dodge', color="black", show.legend = FALSE) +
+                    labs(title="% aligned reads", y = "sequenced reads") + 
+                    theme_minimal() +
+                    coord_flip() +
+                    scale_fill_manual(values = mypal)
+
+print(p_aligned_reads)
+
+p_duplicate_reads <- ggplot(df_ncells, aes(x = experiment, y = pct_duplicates, fill = experiment)) +
+                    geom_col(position = 'dodge', color="black", show.legend = FALSE) +
+                    labs(title="% duplicate reads", y = "sequenced reads") + 
+                    theme_minimal() +
+                    coord_flip() +
+                    scale_fill_manual(values = mypal)
+
+print(p_duplicate_reads)
+
+p_retained_reads <- ggplot(df_ncells, aes(x = experiment, y = pct_retained_reads, fill = experiment)) +
+                    geom_col(position = 'dodge', color="black", show.legend = FALSE) +
+                    labs(title="% retained reads", y = "sequenced reads") + 
+                    theme_minimal() +
+                    coord_flip() +
+                    scale_fill_manual(values = mypal)
+
+print(p_retained_reads)
+
+p_retained_reads_log <- ggplot(df_ncells, aes(x = experiment, y = log10(retained_reads_per_pass_cell), fill = experiment)) +
+                    geom_col(position = 'dodge', color="black", show.legend = FALSE) +
+                    labs(title="Retained reads per passing cell", y = "log10(sequenced reads)") + 
+                    theme_minimal() +
+                    coord_flip() +
+                    scale_fill_manual(values = mypal)
+
+print(p_sequnced_reads_log)
+
+```
+```{r save2, message=F, warning=FALSE, eval=F}
+ggsave(file.path(outputDir_plots, "n_sequenced_reads_log.pdf"),
+       plot = p_sequnced_reads_log,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "n_sequenced_reads.pdf"),
+       plot = p_sequnced_reads,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "pct_aligned_reads.pdf"),
+       plot = p_aligned_reads,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "pct_duplicate_reads.pdf"),
+       plot = p_duplicate_reads,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "pct_retained_reads.pdf"),
+       plot = p_retained_reads,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "n_retained_reads_log.pdf"),
+       plot = p_retained_reads_log,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+```
+
+### Values per cell
+```{r table, emessage=F, warning=F, eval=F}
+df <- data.frame(experiment = c(seurat@meta.data$orig.ident),
+                 cell = c(seurat@meta.data$CB),
+                 N_frag = c(seurat@meta.data$reads_count),
+                 FRiP = c(seurat@meta.data$FRiP),
+                 filt = seurat@meta.data$filtering)
+head(df)
+write.csv(df, file.path(outputDir_tables, "qc_values_per_cell.csv"))
+```
+
+## Coverage plots
+
+```{r coverage_prep, message=F, warning=F}
+
+max_cell <- subset(seurat_list[["one_cell_cuttag"]],
+                   subset = reads_count == max(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]]))
+
+median(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]])
+#even number of observations
+
+median_cell <- subset(seurat_list[["one_cell_cuttag"]],
+                   subset = reads_count == median(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]][-1])
+                   )
+```
+
+```{r coverage_plot, message=F, warning=F}
+
+roi = "chr5-600000-1400000"
+coverage_pseudobulk <- CoveragePlot(
+                         object = seurat_list[["one_cell_cuttag"]],
+                         region = roi,
+                         window = 3000,
+                         annotation = FALSE,
+                         peaks = FALSE) 
+coverage_pseudobulk[[1]][["scales"]][["scales"]][[2]] <-  scale_fill_manual(values = mypal[3])
+coverage_pseudobulk[[1]][["data"]][["group"]] <- "pseudobulk"
+
+coverage_max <- CoveragePlot(
+                         object = max_cell,
+                         window = 3000,
+                         region = roi,
+                         annotation = FALSE,
+                         peaks = FALSE) 
+coverage_max[[1]][["scales"]][["scales"]][[2]] <-  scale_fill_manual(values = mypal[3])
+coverage_max[[1]][["data"]][["group"]] <- "max cell"
+
+coverage_median <- CoveragePlot(
+                         object = median_cell,
+                         window = 3000,
+                         region = roi,
+                         annotation = FALSE,
+                         peaks = FALSE) 
+coverage_median[[1]][["scales"]][["scales"]][[2]] <-  scale_fill_manual(values = mypal[3])
+coverage_median[[1]][["data"]][["group"]] <- "median cell"
+
+coverage_bulk <- BigwigTrack(
+                     bigwig = bw_bulk,
+                     region = roi,
+                     smooth = 3000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[7]) +
+                     theme(legend.position = "none") +
+                     ggtitle("MM468 H3K27Me3 One Cell CUT&TAG")
+coverage_bulk[["data"]][["bw"]] <- "bulk"
+
+tile_plot <- TilePlot(object = seurat_list[["one_cell_cuttag"]],
+                        region = roi,
+                        tile.cells = 25,
+                        tile.size = 3000) + scale_fill_gradient(low = "white", high = "#005043")
+
+gene_plot <- AnnotationPlot(object = seurat_list[["one_cell_cuttag"]], region = roi)
+
+p <- CombineTracks(
+  plotlist = list(coverage_bulk, coverage_median, coverage_max, coverage_pseudobulk, tile_plot, gene_plot),
+  heights = c(15,15,15,15,30,10)) & theme(axis.title.y = element_text(size = 7)) 
+
+print(p)
+
+
+```
+
+```{r save3, message=F, warning=F, eval=FALSE}
+ggsave(file.path(outputDir_plots, "tracks_onecell_cuttag_mm468_h3k27me3.pdf"),
+       plot = p,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+
+ggsave(file.path(outputDir_plots, "bulk_track_mm468_h3k27me3.pdf"),
+       plot = coverage_bulk,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+```
+
+
+
