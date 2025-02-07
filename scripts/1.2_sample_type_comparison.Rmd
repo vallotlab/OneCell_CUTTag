@@ -1,0 +1,257 @@
+---
+title: "1.2_sample_type_comparison"
+author: "Anna Schwager"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+Load the global variables 
+```{r source, message=F, warning=F}
+here::i_am("scripts/1.2_sample_type_comparison.Rmd")
+mainDir = here::here()
+source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
+source(knitr::purl(file.path(mainDir, "scripts/functions.Rmd"), quiet=TRUE))
+
+set.seed(123)
+```
+
+## Preparation and object creation
+### Setting directories and input files
+```{r input_dirs, message=F, warning=F}
+inputDir_local = inputDir
+outputDir_local = file.path(outputDir, "1.2_sample_type_comparison") ; if(!file.exists(outputDir_local)){dir.create(outputDir_local)}
+outputDir_objects = file.path(outputDir_local, "objects") ; if(!file.exists(outputDir_objects)){dir.create(outputDir_objects)}
+outputDir_plots = file.path(outputDir_local, "plots") ; if(!file.exists(outputDir_plots)){dir.create(outputDir_plots)}
+outputDir_tables = file.path(outputDir_local, "tables") ; if(!file.exists(outputDir_plots)){dir.create(outputDir_plots)}
+
+
+ld <- list.dirs(inputDir_local)
+fragpaths <- list.files(ld[grepl("/.*fragmentFiles", ld)], full.names = TRUE)
+fragpaths <- fragpaths[grepl("L497_L551|L536|L539|L512|L548|L547", fragpaths)] 
+
+fragpaths_hg38 <- fragpaths[grepl("hg38/.*fragmentFiles/.*tsv.gz$", fragpaths)]
+names(fragpaths_hg38) <- str_replace(fragpaths_hg38, ".*fragmentFiles/(.*).fragments.tsv.gz", replacement = "\\1") %>% 
+                        str_replace_all("/", replacement = "_")
+
+fragpaths_mm10 <- fragpaths[grepl("mm10/.*fragmentFiles/.*tsv.gz$", fragpaths)]
+names(fragpaths_mm10) <- str_replace(fragpaths_mm10, ".*fragmentFiles/(.*).fragments.tsv.gz", replacement = "\\1") %>% 
+                        str_replace_all("/", replacement = "_")
+
+fragpaths <- list(fragpaths_hg38, fragpaths_mm10)
+names(fragpaths) <- c("hg38", "mm10")
+
+rm(fragpaths_hg38)
+rm(fragpaths_mm10)
+
+```
+
+### Creating Seurat objects
+```{r objects, message=F, warning=F, eval=F}
+
+seurat_list <- list()
+
+for (genome in names(fragpaths)){
+  
+    genome_name = genome
+    if (genome_name == "hg38"){
+      genome = hg38
+      annotations = annotations_hg38
+    }
+    if (genome_name == "mm10"){
+      genome = mm10
+      annotations = annotations_mm10
+    }
+    
+            for (i in names(fragpaths[[genome_name]])){
+               message(paste0("### Making fragment object for mark sample ", i))
+               total_counts <- CountFragments(fragpaths[[genome_name]][[i]])
+               barcodes <- total_counts$CB
+               frags <- CreateFragmentObject(path = fragpaths[[genome_name]][[i]], cells = barcodes)
+               
+               message(paste0("### Making 50k bin matrix for sample ", i))
+               bin50k_kmatrix = GenomeBinMatrix(
+               frags,
+               genome = genome,
+               cells = NULL,
+               binsize = 50000,
+               process_n = 10000,
+               sep = c(":", "_"),
+               verbose = TRUE)
+              
+               message(paste0("### Creating chromatin assay for sample ", i))
+               chrom_assay <- CreateChromatinAssay(
+               counts = bin50k_kmatrix,
+               sep = c(":", "_"),
+               genome = genome_name,
+               fragments = fragpaths[[genome_name]][[i]],
+               min.cells = 1,
+               min.features = -1)
+    
+               message(paste0("### Creating Seurat object for sample ", i))
+               seurat <- CreateSeuratObject(
+               counts = chrom_assay,
+               assay = "bin_50k")
+  
+               Annotation(seurat) <- annotations
+              
+               seurat <- AddMetaData(seurat, CountFragments(fragpaths[[genome_name]][[i]]))
+               seurat@meta.data[["orig.ident"]] <- i
+              
+               seurat_list[[genome_name]][[i]] <- seurat
+              
+               rm(seurat)
+               rm(frags)
+               rm(total_counts)
+               rm(barcodes)
+               rm(fragments_per_cell)
+               rm(bin50k_matrix)
+               rm(chromatin_assay)
+              
+            }
+}
+
+saveRDS(seurat_list, file.path(outputDir_objects, "seurat_list.rds"))
+ 
+```
+
+```{r seurat_reload, message=F, warning=F}
+seurat_list <- readRDS(file.path(outputDir_objects, "seurat_list.rds"))
+```
+
+
+## QC
+### Weighted histograms
+
+```{r qc1, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+for (genome in names(seurat_list)){
+    for(seurat in seurat_list[[genome]]){
+          p <- plot_weighted_hist(seurat) + ggtitle(print(seurat@meta.data[["orig.ident"]][1]))
+          print(p)
+    }
+}
+
+```
+
+Merge replicates and add metadata
+
+```{r merge_replicates, message=F, warning=F}
+# merging replicates in ident
+
+seurat_list[["hg38"]][["L512_PDX_BC152_P1_H3K4me1"]]$orig.ident <- "L512_PDX_BC152_H3K4me1"
+seurat_list[["hg38"]][["L512_PDX_BC152_P3_H3K4me1"]]$orig.ident <- "L512_PDX_BC152_H3K4me1"
+
+seurat_list[["mm10"]][["L548_Zygote_4_rH3K27me3_pA"]]$orig.ident <- "L548_Zygote_H3K27me3"
+seurat_list[["mm10"]][["L548_Zygote_5_rH3K27me3_pA"]]$orig.ident <- "L548_Zygote_H3K27me3"
+
+# adding the auto vs manual distribution metadata
+seurat_list[["hg38"]][["L512_PDX_BC152_P1_H3K4me1"]]$distribution <- "manual"
+seurat_list[["hg38"]][["L512_PDX_BC152_P3_H3K4me1"]]$distribution <- "manual"
+
+seurat_list[["mm10"]][["L548_Zygote_4_rH3K27me3_pA"]]$distribution <- "manual"
+seurat_list[["mm10"]][["L548_Zygote_5_rH3K27me3_pA"]]$distribution <- "manual"
+
+seurat_list[["mm10"]][["L539_CRE3-Mice8724_rH3K27me3_rNano150"]]$distribution <- "auto"
+seurat_list[["mm10"]][["L539_CRE3-Mice8724_rH3K4me1_rNano150"]]$distribution <- "auto"
+
+seurat_list[["hg38"]][["L497_L551_MM468_rH3K27me3"]]$distribution <- "manual"
+seurat_list[["hg38"]][["L536_MM468_H3K27me3_pA150"]]$distribution <- "auto"
+seurat_list[["hg38"]][["L547_Persister-BC152_rH3K4me1"]]$distribution <- "auto"
+seurat_list[["hg38"]][["L547_Untreated-BC152_rH3K4me1"]]$distribution <- "auto"
+
+```
+
+
+### Filtering and assembling the plot data
+
+```{r merge_filter, message=F, warning=F}
+
+min_reads = 500
+max_reads = 70000
+
+plot_data <- data.frame(reads_count = numeric(),
+                        experiment = character(),
+                        distribution = character(),
+                        stringsAsFactors = FALSE)
+
+for (genome in names(seurat_list)) {
+    for (i in seq_along(seurat_list[[genome]])) {
+        seurat <- seurat_list[[genome]][[i]]
+        seurat$filtering <- ifelse(seurat$reads_count > min_reads & seurat$reads_count < max_reads, 'pass', 'fail')
+        seurat_list[[genome]][[i]] <- seurat
+        
+        passed_cells <- subset(seurat@meta.data, filtering == "pass")
+        experiment <- seurat@meta.data$orig.ident[1]
+        distribution <- seurat@meta.data$distribution[1] 
+        # Create a data frame with reads_count and the source
+        plot_data <- rbind(plot_data,
+                           data.frame(reads_count = passed_cells$reads_count,
+                                      experiment = rep(experiment, length(passed_cells$reads_count)),
+                                      distribution = rep(distribution, length(passed_cells$reads_count))
+                          )
+            )
+    }
+}
+
+# Reorder experiments based on the `distribution` column
+plot_data$experiment <- factor(plot_data$experiment, levels = unique(plot_data$experiment[order(plot_data$distribution)]))
+
+```
+
+
+### N fragments plots
+```{r qc2, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+plot_data_manual <- plot_data %>% filter(distribution == "manual") %>%
+  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+
+p_manual <- ggplot(plot_data_manual, aes(x = experiment, y = reads_count, fill = experiment)) +
+            geom_boxplot() +
+              labs(title = "N unique fragments, manual distribution",
+                 x = "Experiment",
+                 y = "N fragments") +
+            theme_classic() +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+            coord_cartesian(ylim = c(0, 45000)) +
+            scale_fill_manual(values = c(mypal[3], mypal[3], mypal[2]))
+
+plot_data_auto <- plot_data %>% filter(distribution == "auto") %>%
+  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+
+p_auto <- ggplot(plot_data_auto, aes(x = experiment, y = reads_count, fill = experiment)) +
+            geom_boxplot() +
+              labs(title = "N unique fragments, auto distribution",
+                 x = "Experiment",
+                 y = "N fragments") +
+            theme_classic() +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+            scale_fill_manual(values = c(mypal[3], mypal[2], mypal[3], mypal[2], mypal[2]))
+
+p_manual
+p_auto
+
+```
+
+```{r save1, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "fragments_manual.pdf"),
+       plot = p_manual,
+       device = "pdf",
+       units = "mm",
+       width = 65,
+       height = 130)
+
+ggsave(file.path(outputDir_plots, "fragments_auto.pdf"),
+       plot = p_auto,
+       device = "pdf",
+       units = "mm",
+       width = 80,
+       height = 130)
+```
+
+
