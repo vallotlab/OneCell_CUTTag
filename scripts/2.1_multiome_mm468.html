@@ -11,7 +11,7 @@
 
 <meta name="author" content="Anna Schwager" />
 
-<meta name="date" content="2025-02-07" />
+<meta name="date" content="2025-02-10" />
 
 <title>2.1_multiome_mm468</title>
 
@@ -2840,12 +2840,17 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">2.1_multiome_mm468</h1>
 <h4 class="author">Anna Schwager</h4>
-<h4 class="date">2025-02-07</h4>
+<h4 class="date">2025-02-10</h4>
 
 </div>
 
 
 <p>Load the global variables</p>
+<pre class="r"><code>here::i_am(&quot;scripts/2.1_multiome_mm468.Rmd&quot;)
+mainDir = here::here()
+source(knitr::purl(file.path(mainDir,&quot;scripts/global_variables.Rmd&quot;), quiet=TRUE))
+source(knitr::purl(file.path(mainDir, &quot;scripts/functions.Rmd&quot;), quiet=TRUE))
+set.seed(123)</code></pre>
 <div id="preparation-and-object-creation" class="section level2" number="1">
 <h2><span class="header-section-number">1</span> Preparation and object
 creation</h2>

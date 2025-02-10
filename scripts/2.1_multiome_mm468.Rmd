@@ -12,7 +12,7 @@ output:
 ---
 
 Load the global variables 
-```{r source, message=F, warning=F, echo=F}
+```{r source, message=F, warning=F}
 here::i_am("scripts/2.1_multiome_mm468.Rmd")
 mainDir = here::here()
 source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
