@@ -1,0 +1,65 @@
+---
+title: "functions"
+author: "Anna Schwager"
+date: "07/08/2024"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This functions plots a weighted histogram from a Seurat object. 
+```{r weighted_hist}
+#' Plot a weighted histogram of log10-transformed reads per cell
+#'
+#' This function generates a weighted histogram of log10-transformed reads per cell,
+#' with an option to switch between RNA assay (`nCount_RNA`) and chromatin assays (`reads_count`).
+#'
+#' @param seurat A Seurat object containing single-cell data.
+#' @param assay A character string indicating the assay to use. Default is the current default assay
+#'   in the Seurat object. If "RNA", the function will use the column `nCount_RNA` from the metadata,
+#'   otherwise it will use the `reads_count` column.
+#' 
+#' @return A `ggplot2` object showing a weighted histogram.
+#' 
+#' @examples
+#' # Assuming 'seurat_k27' is a Seurat object with 'reads_count' (calculated using the
+#' CountFragments function of Signac) and 'nCount_RNA' in meta.data
+#' plot_weighted_hist(seurat_k27)
+#' plot_weighted_hist(seurat_k27, assay = "RNA")
+#'
+plot_weighted_hist = function(seurat, assay = DefaultAssay(seurat)) {
+  # Determine which column to use based on the assay
+  if (assay == "RNA") {
+    count_column <- "nCount_RNA"
+    fill="lightgoldenrod"
+  } else if (assay == "RNA_features") {
+    count_column <- "nFeature_RNA"
+    fill="gold"
+  } else {
+    count_column <- "reads_count"
+    fill="lightskyblue2"
+  }
+  
+  # Extract the appropriate counts from the meta data
+  counts <- seurat@meta.data[[count_column]]
+  log_counts <- log10(counts)
+  
+  # Create the plot
+  ggplot(data.frame(log_counts), aes(x=log_counts)) +
+    geom_histogram(aes(weight = log_counts), color="black", fill=fill) +
+    ylab("N barcodes") +
+    xlab("log10(reads/cell)") + 
+    theme_minimal() + 
+    theme(text = element_text(size=20))
+}
+
+```
+

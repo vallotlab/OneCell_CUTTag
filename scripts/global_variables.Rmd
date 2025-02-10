@@ -1,0 +1,93 @@
+---
+title: "global_var"
+author: "Anna Schwager"
+date: "07/08/2024"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Directory setup
+The mainDir is the root directory. All the other paths are relative to mainDir.
+```{r directories creation}
+mainDir = here::here()
+inputDir =  file.path(mainDir,"input") 
+outputDir = file.path(mainDir, "output")
+annotDir = file.path(mainDir, "annotation")
+
+```
+                                                                                               
+## Loading libraries      
+
+```{r libraries_new, message=F, warning=F}
+
+library(Signac)
+library(Seurat)
+library(EnsDb.Mmusculus.v79)
+library(EnsDb.Hsapiens.v86)
+library(tidyverse)
+library(ChIPpeakAnno)
+library(biovizBase)
+library(ggsci)
+library(scales)
+library(umap)
+library(pheatmap)
+library(RColorBrewer)
+library(ggpointdensity)
+library(grid)
+library(gridExtra)
+library(ggvenn)
+
+```
+
+## Loading annotation
+```{r annotation, message=F, warning=F}
+hg38 = seqlengths(EnsDb.Hsapiens.v86)
+names(hg38) = paste0("chr", names(hg38))
+# extract gene annotations from EnsDb
+annotations_hg38 <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+# change to UCSC style
+seqlevels(annotations_hg38) <- paste0('chr', seqlevels((annotations_hg38)))
+genome(annotations_hg38) <- "hg38"
+
+mm10 = seqlengths(EnsDb.Mmusculus.v79)
+names(mm10) = paste0("chr", names(mm10))
+# extract gene annotations from EnsDb
+annotations_mm10 <- GetGRangesFromEnsDb(ensdb = (EnsDb.Mmusculus.v79))
+# change to UCSC style 
+seqlevels(annotations_mm10) <- paste0('chr', seqlevels(annotations_mm10))
+genome(annotations_mm10) <- "mm10"
+
+```
+
+## Gene lists
+Some explanation 
+```{r gene_lists}
+
+```
+
+## Plot themes
+Some explanation 
+```{r colors}
+mypal <- pal_npg("nrc", alpha = 0.9)(10)
+
+mypal <- c(mypal, "#996699", "#e0d0e0")
+
+#scales::show_col(mypal)
+
+#c("#D3D3D3", "#BECFCC", "#A9C6BE", "#55B3A4", "#00A087E5", "#005043", "#00201b")
+
+umap_blues = c("#D3D3D3", "#A3C5D0", "#4DBBD5E5", "#006D7F", "#00201b")
+umap_greens = c("#D3D3D3", "#BECFCC", "#00A087E5", "#005043", "#00201b")
+
+```
+
+
