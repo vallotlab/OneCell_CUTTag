@@ -139,7 +139,9 @@ for (seurat in seurat_list){
        height = 70)
 }
 ```
+
 ### Filtering
+
 ```{r merge_filter, message=F, warning=F}
 min_reads = 500
 max_reads = 70000 # remove 1 outlier cell of 10x
