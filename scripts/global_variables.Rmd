@@ -68,17 +68,10 @@ genome(annotations_mm10) <- "mm10"
 
 ```
 
-## Gene lists
-Some explanation 
-```{r gene_lists}
-
-```
-
 ## Plot themes
 Some explanation 
 ```{r colors}
 mypal <- pal_npg("nrc", alpha = 0.9)(10)
-
 mypal <- c(mypal, "#996699", "#e0d0e0")
 
 #scales::show_col(mypal)
