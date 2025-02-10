@@ -401,6 +401,61 @@ ggsave(file.path(outputDir_plots, "rna_count_zygotes2.pdf"),
 
 ```
 
+### DNA to RNA reads scatter plots
+```{r qc_scatter, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+seurat_f <- subset(seurat, subset = filtering == "pass")
+
+frags_to_rna_reads <- ggplot(seurat_f@meta.data, aes(x = reads_count, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique RNA reads",
+                                title = "N unique DNA fragments vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+frags_to_genes <- ggplot(seurat_f@meta.data, aes(x = reads_count, y = nFeature_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique genes",
+                                title = "N unique DNA fragments vs. N unique genes") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+genes_to_rna_reads <- ggplot(seurat_f@meta.data, aes(x = nFeature_RNA, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique genes",
+                                  y =  "N unique RNA reads",
+                                title = "N unique genes vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+frags_to_rna_reads
+frags_to_genes
+genes_to_rna_reads
+
+```
+```{r save_scatter, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "frags_to_rna_reads.pdf"),
+       plot = frags_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+
+ggsave(file.path(outputDir_plots, "genes_to_rna_reads.pdf"),
+       plot = genes_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+
+ggsave(file.path(outputDir_plots, "grags_to_genes.pdf"),
+       plot = frags_to_genes,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+```
 
 ## Correlation with the bulk
 ### Correlation matrix - pseudobulk level
