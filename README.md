@@ -137,22 +137,22 @@ The **input** folder should be created by the user and organized as follows :
                     └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
 ```
 
-All input files (fragmentFiles, 10Xlike matricies and bigwigs) produced in this study can be downloaded from GEO (XXXXX). 
+- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be downloaded from GEO (XXXXX).
+- The CPM-normalized bigwig file for the STARR-ChIP H3K27Ac full grown oocyte dataset was generated from the raw fastq files downloaded from GEO (GSE217970; SRX18260532).
+- The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
 \
-The CPM-normalized bigwig file for the STARR-ChIP H3K27Ac full grown oocyte dataset was generated from the raw fastq files downloaded from SRA (SRX18260532).
 \
-The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadat*a* folder of this repository. 
-\
-Before running the scripts, the files should be placed to the corresponding input sub-folder and named accordingly.
+Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
 
 ## 2. Dependencies
 The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
 \
 All packages required to run the code and the software versions used are listed in *scripts
-/global_variables.Rmd* and should be installed before running the scripts. 
+/global_variables.Rmd*. The packages should be installed before running the scripts. 
+The installation time should not exceed 40 min.
 
 ## 3. Script description 
-The **scripts* folder contains the following files:
+The **scripts** folder contains the following files:
 ```
 .
 ├── 1.1_technique_comparison.Rmd
@@ -164,9 +164,9 @@ The **scripts* folder contains the following files:
 └── global_variables.Rmd
 
 ```
-The scripts are organised per analysis and can be run independently from each other. Each script will create an associated sub-folders in the *output* folder to save the output images and objects.
-\
+The scripts are organised per analysis and can be run independently from each other. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
 The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
+\
 \
 Expected output of each of the scripts can be seen in the html files in the *scripts* folder.
 
