@@ -1,5 +1,14 @@
 # OneCell_CUT&Tag
 
+This repository contains the code associated with the Mouteaux & Schwager, 2025 paper (pubmed ID: XXXX)
+
+The *scripts* folder contains the scripts used for the downstream analysis and visulalisation.
+The stand-alone sctipt 
+
+
+
+## 1. Data pre-processing
+
 ## 1. Setup Instructions
 
 To reproduce the analysis from the Mouteaux & Schwager 2025 paper, the user should create the following folder structure on their local machine : 
