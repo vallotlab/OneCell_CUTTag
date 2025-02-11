@@ -1,11 +1,11 @@
 # OneCell_CUT&Tag
 
-This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2025** paper (pubmed ID: XXXX).
+This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2025** paper (pubmed ID: **XXXX**).
 \
 Please, read the information below for the scripts description and reproducibility instructions.
 
 ## 0. Data availability
-All raw and processed files produced in this study can be downloaded from GEO (XXXXXX). 
+All raw and processed files produced in this study can be downloaded from GEO (**XXXXX**). 
 Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
 Public data used in this analysis (FGO H3K27AC STAR-ChIP-seq dataset) were downloaded from GEO (GSE217970).
 
@@ -137,7 +137,7 @@ The **input** folder should be created by the user and organized as follows :
                     └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
 ```
 
-- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be downloaded from GEO (XXXXX).
+- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be downloaded from GEO (**XXXXX**).
 - The CPM-normalized bigwig file for the STARR-ChIP H3K27Ac full grown oocyte dataset was generated from the raw fastq files downloaded from GEO (GSE217970; SRX18260532).
 - The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
 \
@@ -171,7 +171,7 @@ The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies 
 Expected output of each of the scripts can be seen in the html files in the *scripts* folder. 
 \
 \
-The output of the scripts was used in the following figures of the article (TO UPDATE WHEN FINAL VERSION):
+The output of the scripts was used in the following figures of the article (**TO UPDATE WHEN FINAL VERSION**):
 - 1.1_technique_comparison: Fig1b-c, Extended FigXXX
 - 1.2_sample_type_comparison: Fig1d
 - 2.1_multiome_mm468: Fig1xxx, Extended FigXXX
