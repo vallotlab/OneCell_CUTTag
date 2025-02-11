@@ -1,5 +1,5 @@
 ---
-title: "2.2_multiome_mouse_mammary_gland"
+title: "2.3_multiome_mouse_mammary_gland"
 author: "Anna Schwager"
 date: "`r Sys.Date()`"
 output:
@@ -13,7 +13,7 @@ output:
 
 Load the global variables 
 ```{r source, message=F, warning=F }
-here::i_am("scripts/2.2_multiome_mouse_mammary_gland.Rmd")
+here::i_am("scripts/2.3_multiome_mouse_mammary_gland.Rmd")
 mainDir = here::here()
 source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
 source(knitr::purl(file.path(mainDir, "scripts/functions.Rmd"), quiet=TRUE))
