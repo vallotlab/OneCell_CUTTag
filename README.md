@@ -1,19 +1,16 @@
 # OneCell_CUT&Tag
 
-This repository contains the code associated with the Mouteaux & Schwager, 2025 paper (pubmed ID: XXXX).
+This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2025** paper (pubmed ID: XXXX).
+\
+Please, read the information below for the scripts description and reproducibility instructions.
 
 ## 0. Data availability
-All raw (fastq) and processed (DNA fragment files, RNA count matricies and biqwigs) can be downloaded from GEO (XXXXXX).  
-
-## 0. Data pre-processing
-All raw sc-epigenomic data produced in the paper was processed using the sc-Epigenome pipeline (INSERT LINK) of Curie Institute.
-The pipeline was run with the default parameters in a corresponding mode : sccuttag_plate mode (OneCell CUT&Tag experiments), scchip_indrop (scChIP-seq experiment) or sccuttag_10X mode (10X scCUT&Tag and scChIC-seq experiments). In the case of the scChIC-seq, the original fastq files were first transformed to the 10X format using the *chic_10x_trnasform.sh" script and the new barcode index was created from the scChiC experiment barcodes (maya_384NLA.txt) using bowtie2-build. The pipeline was then run in the sccuttag_10X mode with the custom configuration file updating the path to the barcode index.
-
-
+All raw and processed files produced in this study can be downloaded from GEO (XXXXXX). 
+Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
+Public data used in this analysis (FGO H3K27AC STAR-ChIP-seq dataset) were downloaded from GEO (GSE217970).
 
 ## 1. Setup Instructions
-
-To reproduce the analysis from the Mouteaux & Schwager 2025 paper, the user should create the following folder structure on their local machine : 
+To reproduce the analysis, the user should create the following folder structure on their local machine : 
 
 ```
 .
@@ -23,7 +20,11 @@ To reproduce the analysis from the Mouteaux & Schwager 2025 paper, the user shou
 └── scripts
 
 ```
-The **input** folder should have the following sub-directories:
+The **annotation** and **scripts** folders should be cloned from this github repository as they are.
+\
+The **output** folder and its subfolders will be ctreated automatically while running the scripts. 
+\
+The **input** folder should be created by the user and organized as follows :
 
 ```
 .
@@ -48,14 +49,10 @@ The **input** folder should have the following sub-directories:
 │   │   │   │       ├── barcodes.tsv
 │   │   │   │       ├── genes.tsv
 │   │   │   │       └── matrix.mtx
-│   │   │   ├── h3k27me3
-│   │   │   │   └── fragmentFiles
-│   │   │   │       ├── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz
-│   │   │   │       └── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz.tbi
-│   │   │   └── h3k4me1
+│   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
-│   │   │           ├── L537_MM468_rH3K4me1_pA150.fragments.tsv.gz
-│   │   │           └── L537_MM468_rH3K4me1_pA150.fragments.tsv.gz.tbi
+│   │   │           ├── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz
+│   │   │           └── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz.tbi
 │   │   ├── sc_chicseq
 │   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
@@ -73,8 +70,6 @@ The **input** folder should have the following sub-directories:
 │   │               └── N59N64_MM468BC_K27me3.fragments.tsv.gz.tbi
 │   ├── fresh_PDX
 │   │   └── one_cell_multiome
-│   │       ├── facs
-│   │       │   └── MultiOme_FACSannotation_l547.csv
 │   │       ├── flash
 │   │       │   └── 10XlikeMatrix_umi
 │   │       │       ├── barcodes.tsv
@@ -122,6 +117,12 @@ The **input** folder should have the following sub-directories:
     │               └── L539_CRE3-Mice8724_rH3K4me1_rNano150.fragments.tsv.gz.tbi
     └── zygotes
         ├── bigwigs
+        │   ├── D1535_D1480C05_cutran_zygotes_H3K27me3.bw
+        │   ├── D1888T0590_Zygote_5_cell3_RNA.bw
+        │   ├── D1888_Zygote_5_pseudobulk_RNA.bw
+        │   └── SRR22286444_starrchip_FGO_H3K27Ac.bw
+        ├── matrix_500kb
+        │   └── bw_summary_zygotes_k27me3_bulk_and_sc_oocyte_k27ac_bulk0.5Mb.tab
         └── one_cell_multiome
             ├── flash
             │   └── 10XlikeMatrix_umi
@@ -136,14 +137,40 @@ The **input** folder should have the following sub-directories:
                     └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
 ```
 
-All input files can be downloaded from GEO (XXXXX). They should be placed to the corresponding input sub-folder and named accordingly.  
-
-The scripts and annotation folders should be cloned from this github repository as they are.  
-
-The sub-folders of the output directory will be created automatically when running the scripts.
+All input files (fragmentFiles, 10Xlike matricies and bigwigs) produced in this study can be downloaded from GEO (XXXXX). 
 \
-The html files are provided for each script to demostrate the expected output.
+The CPM-normalized bigwig file for the STARR-ChIP H3K27Ac full grown oocyte dataset was generated from the raw fastq files downloaded from SRA (SRX18260532).
+\
+The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadat*a* folder of this repository. 
+\
+Before running the scripts, the files should be placed to the corresponding input sub-folder and named accordingly.
 
 ## 2. Dependencies
+The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
+\
+All packages required to run the code and the software versions used are listed in *scripts
+/global_variables.Rmd* and should be installed before running the scripts. 
 
-## 3. Script description
+## 3. Script description 
+The **scripts* folder contains the following files:
+```
+.
+├── 1.1_technique_comparison.Rmd
+├── 1.2_sample_type_comparison.Rmd
+├── 2.1_multiome_mm468.Rmd
+├── 2.2_multiome_mouse_mammary_gland.Rmd
+├── 2.2_multiome_zygotes.Rmd
+├── functions.Rmd
+└── global_variables.Rmd
+
+```
+The scripts are organised per analysis and can be run independently from each other. Each script will create an associated sub-folders in the *output* folder to save the output images and objects.
+\
+The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
+\
+Expected output of each of the scripts can be seen in the html files in the *scripts* folder.
+
+## 4. Runtime
+On a standard laptop (MacBook Pro M1, 16Gb RAM), the estimated runtime for all of the scripts does not exceed 1h.
+
+
