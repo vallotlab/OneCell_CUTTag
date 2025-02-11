@@ -1,13 +1,15 @@
 # OneCell_CUT&Tag
 
-This repository contains the code associated with the Mouteaux & Schwager, 2025 paper (pubmed ID: XXXX)
+This repository contains the code associated with the Mouteaux & Schwager, 2025 paper (pubmed ID: XXXX).
 
-The *scripts* folder contains the scripts used for the downstream analysis and visulalisation.
-The stand-alone sctipt 
+## 0. Data availability
+All raw (fastq) and processed (DNA fragment files, RNA count matricies and biqwigs) can be downloaded from GEO (XXXXXX).  
+
+## 0. Data pre-processing
+All raw sc-epigenomic data produced in the paper was processed using the sc-Epigenome pipeline (INSERT LINK) of Curie Institute.
+The pipeline was run with the default parameters in a corresponding mode : sccuttag_plate mode (OneCell CUT&Tag experiments), scchip_indrop (scChIP-seq experiment) or sccuttag_10X mode (10X scCUT&Tag and scChIC-seq experiments). In the case of the scChIC-seq, the original fastq files were first transformed to the 10X format using the *chic_10x_trnasform.sh" script and the new barcode index was created from the scChiC experiment barcodes (maya_384NLA.txt) using bowtie2-build. The pipeline was then run in the sccuttag_10X mode with the custom configuration file updating the path to the barcode index.
 
 
-
-## 1. Data pre-processing
 
 ## 1. Setup Instructions
 
