@@ -168,15 +168,15 @@ The scripts are organised per analysis and can be run independently from each ot
 The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
 \
 \
-Expected output of each of the scripts can be seen in the html files in the *scripts* folder. The figures 
+Expected output of each of the scripts can be seen in the html files in the *scripts* folder. 
 \
 \
-Script-Figure associations: 
-- 1.1_technique_comparison: Fig1b-c
-- 1.2_sample_type_comparison:
-- 2.1_multiome_mm468:
-- 2.2_multiome_zygotes:
-- 2.3_multiome_mouse_mammary_gland:
+The output of the scripts was used in the following figures of the article (TO UPDATE WHEN FINAL VERSION):
+- 1.1_technique_comparison: Fig1b-c, Extended FigXXX
+- 1.2_sample_type_comparison: Fig1d
+- 2.1_multiome_mm468: Fig1xxx, Extended FigXXX
+- 2.2_multiome_zygotes: Fig2a-c, Extended FigXXX
+- 2.3_multiome_mouse_mammary_gland: Fig2d-f, Extended FigXXX
 
 ## 4. Runtime
 On a standard laptop (MacBook Pro M1, 16Gb RAM), the estimated runtime for all of the scripts does not exceed 1h.
