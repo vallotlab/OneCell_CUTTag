@@ -22,7 +22,7 @@ To reproduce the analysis, the user should create the following folder structure
 ```
 The **annotation** and **scripts** folders should be cloned from this github repository as they are.
 \
-The **output** folder and its subfolders will be ctreated automatically while running the scripts. 
+The **output** folder should be created and left empty. Its subfolders and content will be ctreated automatically while running the scripts. 
 \
 The **input** folder should be created by the user and organized as follows :
 
