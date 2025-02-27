@@ -11,7 +11,7 @@
 
 <meta name="author" content="Anna Schwager" />
 
-<meta name="date" content="2025-02-10" />
+<meta name="date" content="2025-02-27" />
 
 <title>1.2_sample_type_comparison</title>
 
@@ -2840,7 +2840,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">1.2_sample_type_comparison</h1>
 <h4 class="author">Anna Schwager</h4>
-<h4 class="date">2025-02-10</h4>
+<h4 class="date">2025-02-27</h4>
 
 </div>
 
@@ -3004,7 +3004,7 @@ assembling the plot data</h3>
 <pre class="r"><code>min_reads = 500
 max_reads = 70000
 
-plot_data &lt;- data.frame(reads_count = numeric(),
+plot_data &lt;- data.frame(frequency_count = numeric(),
                         experiment = character(),
                         distribution = character(),
                         stringsAsFactors = FALSE)
@@ -3012,17 +3012,17 @@ plot_data &lt;- data.frame(reads_count = numeric(),
 for (genome in names(seurat_list)) {
     for (i in seq_along(seurat_list[[genome]])) {
         seurat &lt;- seurat_list[[genome]][[i]]
-        seurat$filtering &lt;- ifelse(seurat$reads_count &gt; min_reads &amp; seurat$reads_count &lt; max_reads, &#39;pass&#39;, &#39;fail&#39;)
+        seurat$filtering &lt;- ifelse(seurat$frequency_count &gt; min_reads &amp; seurat$frequency_count &lt; max_reads, &#39;pass&#39;, &#39;fail&#39;)
         seurat_list[[genome]][[i]] &lt;- seurat
         
         passed_cells &lt;- subset(seurat@meta.data, filtering == &quot;pass&quot;)
         experiment &lt;- seurat@meta.data$orig.ident[1]
         distribution &lt;- seurat@meta.data$distribution[1] 
-        # Create a data frame with reads_count and the source
+        # Create a data frame with frequency_count and the source
         plot_data &lt;- rbind(plot_data,
-                           data.frame(reads_count = passed_cells$reads_count,
-                                      experiment = rep(experiment, length(passed_cells$reads_count)),
-                                      distribution = rep(distribution, length(passed_cells$reads_count))
+                           data.frame(frequency_count = passed_cells$frequency_count,
+                                      experiment = rep(experiment, length(passed_cells$frequency_count)),
+                                      distribution = rep(distribution, length(passed_cells$frequency_count))
                           )
             )
     }
@@ -3035,9 +3035,9 @@ plot_data$experiment &lt;- factor(plot_data$experiment, levels = unique(plot_dat
 <h3><span class="header-section-number">2.3</span> N fragments
 plots</h3>
 <pre class="r"><code>plot_data_manual &lt;- plot_data %&gt;% filter(distribution == &quot;manual&quot;) %&gt;%
-  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+  mutate(experiment = reorder(experiment, -frequency_count, FUN = median))
 
-p_manual &lt;- ggplot(plot_data_manual, aes(x = experiment, y = reads_count, fill = experiment)) +
+p_manual &lt;- ggplot(plot_data_manual, aes(x = experiment, y = frequency_count, fill = experiment)) +
             geom_boxplot() +
               labs(title = &quot;N unique fragments, manual distribution&quot;,
                  x = &quot;Experiment&quot;,
@@ -3048,9 +3048,9 @@ p_manual &lt;- ggplot(plot_data_manual, aes(x = experiment, y = reads_count, fil
             scale_fill_manual(values = c(mypal[3], mypal[3], mypal[2]))
 
 plot_data_auto &lt;- plot_data %&gt;% filter(distribution == &quot;auto&quot;) %&gt;%
-  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+  mutate(experiment = reorder(experiment, -frequency_count, FUN = median))
 
-p_auto &lt;- ggplot(plot_data_auto, aes(x = experiment, y = reads_count, fill = experiment)) +
+p_auto &lt;- ggplot(plot_data_auto, aes(x = experiment, y = frequency_count, fill = experiment)) +
             geom_boxplot() +
               labs(title = &quot;N unique fragments, auto distribution&quot;,
                  x = &quot;Experiment&quot;,

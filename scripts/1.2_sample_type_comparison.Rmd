@@ -175,7 +175,7 @@ seurat_list[["hg38"]][["L547_Untreated-BC152_rH3K4me1"]]$distribution <- "auto"
 min_reads = 500
 max_reads = 70000
 
-plot_data <- data.frame(reads_count = numeric(),
+plot_data <- data.frame(frequency_count = numeric(),
                         experiment = character(),
                         distribution = character(),
                         stringsAsFactors = FALSE)
@@ -183,17 +183,17 @@ plot_data <- data.frame(reads_count = numeric(),
 for (genome in names(seurat_list)) {
     for (i in seq_along(seurat_list[[genome]])) {
         seurat <- seurat_list[[genome]][[i]]
-        seurat$filtering <- ifelse(seurat$reads_count > min_reads & seurat$reads_count < max_reads, 'pass', 'fail')
+        seurat$filtering <- ifelse(seurat$frequency_count > min_reads & seurat$frequency_count < max_reads, 'pass', 'fail')
         seurat_list[[genome]][[i]] <- seurat
         
         passed_cells <- subset(seurat@meta.data, filtering == "pass")
         experiment <- seurat@meta.data$orig.ident[1]
         distribution <- seurat@meta.data$distribution[1] 
-        # Create a data frame with reads_count and the source
+        # Create a data frame with frequency_count and the source
         plot_data <- rbind(plot_data,
-                           data.frame(reads_count = passed_cells$reads_count,
-                                      experiment = rep(experiment, length(passed_cells$reads_count)),
-                                      distribution = rep(distribution, length(passed_cells$reads_count))
+                           data.frame(frequency_count = passed_cells$frequency_count,
+                                      experiment = rep(experiment, length(passed_cells$frequency_count)),
+                                      distribution = rep(distribution, length(passed_cells$frequency_count))
                           )
             )
     }
@@ -209,9 +209,9 @@ plot_data$experiment <- factor(plot_data$experiment, levels = unique(plot_data$e
 ```{r qc2, message=F, warning=F, fig.show="hold", out.width="50%"}
 
 plot_data_manual <- plot_data %>% filter(distribution == "manual") %>%
-  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+  mutate(experiment = reorder(experiment, -frequency_count, FUN = median))
 
-p_manual <- ggplot(plot_data_manual, aes(x = experiment, y = reads_count, fill = experiment)) +
+p_manual <- ggplot(plot_data_manual, aes(x = experiment, y = frequency_count, fill = experiment)) +
             geom_boxplot() +
               labs(title = "N unique fragments, manual distribution",
                  x = "Experiment",
@@ -222,9 +222,9 @@ p_manual <- ggplot(plot_data_manual, aes(x = experiment, y = reads_count, fill =
             scale_fill_manual(values = c(mypal[3], mypal[3], mypal[2]))
 
 plot_data_auto <- plot_data %>% filter(distribution == "auto") %>%
-  mutate(experiment = reorder(experiment, -reads_count, FUN = median))
+  mutate(experiment = reorder(experiment, -frequency_count, FUN = median))
 
-p_auto <- ggplot(plot_data_auto, aes(x = experiment, y = reads_count, fill = experiment)) +
+p_auto <- ggplot(plot_data_auto, aes(x = experiment, y = frequency_count, fill = experiment)) +
             geom_boxplot() +
               labs(title = "N unique fragments, auto distribution",
                  x = "Experiment",
