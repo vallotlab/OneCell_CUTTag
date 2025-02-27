@@ -5,7 +5,7 @@ This repository contains the code used for the downstream analysis and visualisa
 Please, read the information below for the scripts description and reproducibility instructions.
 
 ## 0. Data availability
-All raw and processed files produced in this study can be downloaded from GEO (**XXXXX**). 
+All raw and processed files produced in this study can be downloaded from GEO (**GSE290486**). 
 Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
 Public data used in this analysis (FGO H3K27AC STAR-ChIP-seq dataset) were downloaded from GEO (GSE217970).
 
