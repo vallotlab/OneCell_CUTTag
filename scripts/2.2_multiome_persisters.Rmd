@@ -230,7 +230,7 @@ seurat@meta.data[["filtering"]] <- ifelse(seurat@meta.data$reads_count > min_rea
 
 ```{r qc2, message=F, warning=F, fig.show="hold", out.width="50%"}
 
-p_count <- VlnPlot(subset(seurat, subset = filtering == "pass"), c("reads_count"),
+p_count <- VlnPlot(subset(seurat, subset = filtering == "pass"), c("frequency_count"),
                    group.by = "orig.ident", split.by = NULL, pt.size = 0) +
                    labs(title = "Unique fragments per cell PDX") +
                    stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
@@ -301,7 +301,7 @@ ggsave(file.path(outputDir_plots, "rna_count_persisters.pdf"),
 ```{r qc_scatters, message=F, warning=F, fig.show="hold", out.width="50%"}
 seurat <- subset(seurat, subset = filtering == "pass")
 
-frags_to_rna_reads <- ggplot(seurat@meta.data, aes(x = reads_count, y = nCount_RNA, color = orig.ident)) +
+frags_to_rna_reads <- ggplot(seurat@meta.data, aes(x = frequency_count, y = nCount_RNA, color = orig.ident)) +
                              geom_point(alpha = 1, stroke = 0, size = 2) +  
                              labs(x = "N unique DNA fragments",
                                   y =  "N unique RNA reads",
@@ -309,7 +309,7 @@ frags_to_rna_reads <- ggplot(seurat@meta.data, aes(x = reads_count, y = nCount_R
                               theme_classic() +
                               scale_color_manual(values = c(mypal[2], mypal[3]))
 
-frags_to_genes <- ggplot(seurat@meta.data, aes(x = reads_count, y = nFeature_RNA, color = orig.ident)) +
+frags_to_genes <- ggplot(seurat@meta.data, aes(x = frequency_count, y = nFeature_RNA, color = orig.ident)) +
                              geom_point(alpha = 1, stroke = 0, size = 2) +  
                              labs(x = "N unique DNA fragments",
                                   y =  "N unique genes",
@@ -362,7 +362,7 @@ DefaultAssay(seurat) <- "bin_50k"
 
 Sub-setting the max cell for single-cell tracks.
 ```{r subset_max, message=F, warning=F}
-max_cell <- subset(seurat, reads_count == max(seurat@meta.data$reads_count))
+max_cell <- subset(seurat, frequency_count == max(seurat@meta.data$frequency_count))
 
 ```
 

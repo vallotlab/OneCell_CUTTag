@@ -3034,7 +3034,7 @@ seurat@meta.data[[&quot;filtering&quot;]] &lt;- ifelse(seurat@meta.data$reads_co
 <div id="frip-and-n-fragments-plots" class="section level2" number="2.2">
 <h2><span class="header-section-number">2.2</span> FrIP and N fragments
 plots</h2>
-<pre class="r"><code>p_count &lt;- VlnPlot(subset(seurat, subset = filtering == &quot;pass&quot;), c(&quot;reads_count&quot;),
+<pre class="r"><code>p_count &lt;- VlnPlot(subset(seurat, subset = filtering == &quot;pass&quot;), c(&quot;frequency_count&quot;),
                    group.by = &quot;orig.ident&quot;, split.by = NULL, pt.size = 0) +
                    labs(title = &quot;Unique fragments per cell PDX&quot;) +
                    stat_summary(fun.y = median, geom=&#39;point&#39;, size = 2, colour = &quot;black&quot;) +
@@ -3098,7 +3098,7 @@ ggsave(file.path(outputDir_plots, &quot;rna_count_persisters.pdf&quot;),
 <h2><span class="header-section-number">2.3</span> DNA to RNA reads</h2>
 <pre class="r"><code>seurat &lt;- subset(seurat, subset = filtering == &quot;pass&quot;)
 
-frags_to_rna_reads &lt;- ggplot(seurat@meta.data, aes(x = reads_count, y = nCount_RNA, color = orig.ident)) +
+frags_to_rna_reads &lt;- ggplot(seurat@meta.data, aes(x = frequency_count, y = nCount_RNA, color = orig.ident)) +
                              geom_point(alpha = 1, stroke = 0, size = 2) +  
                              labs(x = &quot;N unique DNA fragments&quot;,
                                   y =  &quot;N unique RNA reads&quot;,
@@ -3106,7 +3106,7 @@ frags_to_rna_reads &lt;- ggplot(seurat@meta.data, aes(x = reads_count, y = nCoun
                               theme_classic() +
                               scale_color_manual(values = c(mypal[2], mypal[3]))
 
-frags_to_genes &lt;- ggplot(seurat@meta.data, aes(x = reads_count, y = nFeature_RNA, color = orig.ident)) +
+frags_to_genes &lt;- ggplot(seurat@meta.data, aes(x = frequency_count, y = nFeature_RNA, color = orig.ident)) +
                              geom_point(alpha = 1, stroke = 0, size = 2) +  
                              labs(x = &quot;N unique DNA fragments&quot;,
                                   y =  &quot;N unique genes&quot;,
@@ -3151,7 +3151,7 @@ ggsave(file.path(outputDir_plots, &quot;genes_to_rna_reads.pdf&quot;),
 <h2><span class="header-section-number">2.4</span> Coverage plots</h2>
 <pre class="r"><code>DefaultAssay(seurat) &lt;- &quot;bin_50k&quot;</code></pre>
 <p>Sub-setting the max cell for single-cell tracks.</p>
-<pre class="r"><code>max_cell &lt;- subset(seurat, reads_count == max(seurat@meta.data$reads_count))</code></pre>
+<pre class="r"><code>max_cell &lt;- subset(seurat, frequency_count == max(seurat@meta.data$frequency_count))</code></pre>
 <div id="junb" class="section level3" number="2.4.1">
 <h3><span class="header-section-number">2.4.1</span> JUNB</h3>
 <pre class="r"><code>#chr19:12,782,200-12,814,051
