@@ -11,7 +11,7 @@
 
 <meta name="author" content="Anna Schwager" />
 
-<meta name="date" content="2025-02-10" />
+<meta name="date" content="2025-02-27" />
 
 <title>1.1_technique_comparison</title>
 
@@ -2840,7 +2840,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">1.1_technique_comparison</h1>
 <h4 class="author">Anna Schwager</h4>
-<h4 class="date">2025-02-10</h4>
+<h4 class="date">2025-02-27</h4>
 
 </div>
 
@@ -2933,7 +2933,7 @@ for (i in names(fragpaths)){
     Annotation(seurat) &lt;- annotations_hg38
     
     seurat &lt;- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
-    seurat &lt;- FRiP(object = seurat, assay = &quot;peaks&quot;, total.fragments = &quot;reads_count&quot;)
+    seurat &lt;- FRiP(object = seurat, assay = &quot;peaks&quot;, total.fragments = &quot;frequency_count&quot;)
     seurat@meta.data[[&quot;orig.ident&quot;]] &lt;- i
     seurat_list[[i]] &lt;- seurat
     
@@ -2980,7 +2980,7 @@ histograms</h3>
 max_reads = 70000 # remove 1 outlier cell of 10x
 
 for (p in names(seurat_list)){
-  seurat_list[[p]]$filtering &lt;- ifelse(seurat_list[[p]]$reads_count &gt; min_reads &amp; seurat_list[[p]]$reads_count &lt; max_reads, &#39;pass&#39;, &#39;fail&#39;)
+  seurat_list[[p]]$filtering &lt;- ifelse(seurat_list[[p]]$frequency_count &gt; min_reads &amp; seurat_list[[p]]$frequency_count &lt; max_reads, &#39;pass&#39;, &#39;fail&#39;)
 }
 
 seurat &lt;- merge(seurat_list[[&quot;one_cell_cuttag&quot;]],
@@ -3000,7 +3000,7 @@ plots</h3>
 print(p_frip)
 
 
-p_count &lt;- VlnPlot(subset(seurat, subset = filtering == &#39;pass&#39;), c(&quot;reads_count&quot;),
+p_count &lt;- VlnPlot(subset(seurat, subset = filtering == &#39;pass&#39;), c(&quot;frequency_count&quot;),
                        group.by = &quot;orig.ident&quot;, split.by = NULL, pt.size = 0) +
                        labs(title = &quot;Fragments per cell MM468 H3K27me3&quot;) +
                        stat_summary(fun.y = median, geom=&#39;point&#39;, size = 2, colour = &quot;black&quot;) +
@@ -3148,7 +3148,7 @@ ggsave(file.path(outputDir_plots, &quot;n_retained_reads_log.pdf&quot;),
 <h3><span class="header-section-number">2.5</span> Values per cell</h3>
 <pre class="r"><code>df &lt;- data.frame(experiment = c(seurat@meta.data$orig.ident),
                  cell = c(seurat@meta.data$CB),
-                 N_frag = c(seurat@meta.data$reads_count),
+                 N_frag = c(seurat@meta.data$frequency_count),
                  FRiP = c(seurat@meta.data$FRiP),
                  filt = seurat@meta.data$filtering)
 head(df)
@@ -3158,14 +3158,14 @@ write.csv(df, file.path(outputDir_tables, &quot;qc_values_per_cell.csv&quot;))</
 <div id="coverage-plots" class="section level2" number="3">
 <h2><span class="header-section-number">3</span> Coverage plots</h2>
 <pre class="r"><code>max_cell &lt;- subset(seurat_list[[&quot;one_cell_cuttag&quot;]],
-                   subset = reads_count == max(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;reads_count&quot;]]))
+                   subset = frequency_count == max(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;frequency_count&quot;]]))
 
-median(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;reads_count&quot;]])</code></pre>
+median(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;frequency_count&quot;]])</code></pre>
 <pre><code>## [1] 15744.5</code></pre>
 <pre class="r"><code>#even number of observations
 
 median_cell &lt;- subset(seurat_list[[&quot;one_cell_cuttag&quot;]],
-                   subset = reads_count == median(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;reads_count&quot;]][-1])
+                   subset = frequency_count == median(seurat_list[[&quot;one_cell_cuttag&quot;]]@meta.data[[&quot;frequency_count&quot;]][-1])
                    )</code></pre>
 <pre class="r"><code>roi = &quot;chr5-600000-1400000&quot;
 coverage_pseudobulk &lt;- CoveragePlot(

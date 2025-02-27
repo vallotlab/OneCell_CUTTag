@@ -101,7 +101,7 @@ for (i in names(fragpaths)){
     Annotation(seurat) <- annotations_hg38
     
     seurat <- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
-    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "reads_count")
+    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "frequency_count")
     seurat@meta.data[["orig.ident"]] <- i
     seurat_list[[i]] <- seurat
     
@@ -147,7 +147,7 @@ min_reads = 500
 max_reads = 70000 # remove 1 outlier cell of 10x
 
 for (p in names(seurat_list)){
-  seurat_list[[p]]$filtering <- ifelse(seurat_list[[p]]$reads_count > min_reads & seurat_list[[p]]$reads_count < max_reads, 'pass', 'fail')
+  seurat_list[[p]]$filtering <- ifelse(seurat_list[[p]]$frequency_count > min_reads & seurat_list[[p]]$frequency_count < max_reads, 'pass', 'fail')
 }
 
 seurat <- merge(seurat_list[["one_cell_cuttag"]],
@@ -170,7 +170,7 @@ p_frip <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("FRiP"),
 print(p_frip)
 
 
-p_count <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("reads_count"),
+p_count <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("frequency_count"),
                        group.by = "orig.ident", split.by = NULL, pt.size = 0) +
                        labs(title = "Fragments per cell MM468 H3K27me3") +
                        stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
@@ -322,7 +322,7 @@ ggsave(file.path(outputDir_plots, "n_retained_reads_log.pdf"),
 ```{r table, emessage=F, warning=F, eval=F}
 df <- data.frame(experiment = c(seurat@meta.data$orig.ident),
                  cell = c(seurat@meta.data$CB),
-                 N_frag = c(seurat@meta.data$reads_count),
+                 N_frag = c(seurat@meta.data$frequency_count),
                  FRiP = c(seurat@meta.data$FRiP),
                  filt = seurat@meta.data$filtering)
 head(df)
@@ -334,13 +334,13 @@ write.csv(df, file.path(outputDir_tables, "qc_values_per_cell.csv"))
 ```{r coverage_prep, message=F, warning=F}
 
 max_cell <- subset(seurat_list[["one_cell_cuttag"]],
-                   subset = reads_count == max(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]]))
+                   subset = frequency_count == max(seurat_list[["one_cell_cuttag"]]@meta.data[["frequency_count"]]))
 
-median(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]])
+median(seurat_list[["one_cell_cuttag"]]@meta.data[["frequency_count"]])
 #even number of observations
 
 median_cell <- subset(seurat_list[["one_cell_cuttag"]],
-                   subset = reads_count == median(seurat_list[["one_cell_cuttag"]]@meta.data[["reads_count"]][-1])
+                   subset = frequency_count == median(seurat_list[["one_cell_cuttag"]]@meta.data[["frequency_count"]][-1])
                    )
 ```
 
