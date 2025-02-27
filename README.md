@@ -138,7 +138,7 @@ The **input** folder should be created by the user and organized as follows :
 ```
 
 - Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be downloaded from GEO (**XXXXX**).
-- The CPM-normalized bigwig file for the STARR-ChIP H3K27Ac full grown oocyte dataset was generated from the raw fastq files downloaded from GEO (GSE217970; SRX18260532).
+- The bigwigs produced outside of this stufy (bulk CUT&Tag for the MM468 cell line and STARR-ChIP H3K27Ac for a full grown oocyte) can be dowwnloaded from figshare (**XXX**).
 - The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
 \
 \
