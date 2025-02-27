@@ -128,7 +128,7 @@ for (i in names(fragpaths)){
     message(paste0("### Adding peak assay for ", i))
     seurat[["peaks"]] <- CreateChromatinAssay(
     counts = peak_matrix, genome = "hg38")
-    
+    2
     message(paste0("### Adding RNA assay for ", i))
     seurat <- AddMetaData(seurat, rna_seurat@meta.data)
     seurat[["RNA"]] <- rna_seurat@assays[["RNA"]]
@@ -220,7 +220,7 @@ plot_weighted_hist(seurat, assay = "RNA_features") + ggtitle("RNA features")
 min_reads_chromatin = 400
 min_reads_rna = 1000
 
-seurat@meta.data[["filtering"]] <- ifelse(seurat@meta.data$reads_count > min_reads_chromatin & 
+seurat@meta.data[["filtering"]] <- ifelse(seurat@meta.data$frequency_count > min_reads_chromatin & 
                                           seurat@meta.data$nCount_RNA > min_reads_rna ,
                                                                              'pass', 'fail')
 ```
