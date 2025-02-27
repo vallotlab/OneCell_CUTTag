@@ -2958,7 +2958,7 @@ for (i in names(fragpaths)){
     Annotation(seurat) &lt;- annotations_hg38
     
     seurat &lt;- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
-    seurat &lt;- FRiP(object = seurat, assay = &quot;peaks&quot;, total.fragments = &quot;reads_count&quot;)
+    seurat &lt;- FRiP(object = seurat, assay = &quot;peaks&quot;, total.fragments = &quot;frequency_count&quot;)
     seurat@meta.data[[&quot;orig.ident&quot;]] &lt;- i
     seurat_list[[i]] &lt;- seurat
     

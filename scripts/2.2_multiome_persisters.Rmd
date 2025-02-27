@@ -136,7 +136,7 @@ for (i in names(fragpaths)){
     Annotation(seurat) <- annotations_hg38
     
     seurat <- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
-    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "reads_count")
+    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "frequency_count")
     seurat@meta.data[["orig.ident"]] <- i
     seurat_list[[i]] <- seurat
     
