@@ -1,0 +1,1386 @@
+---
+title: "2.1_multiome_mouse_mammary_gland"
+author: "Anna Schwager"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+Load the global variables 
+```{r source, message=F, warning=F }
+here::i_am("scripts/2.1_multiome_mouse_mammary_gland.Rmd")
+mainDir = here::here()
+source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
+source(knitr::purl(file.path(mainDir, "scripts/functions.Rmd"), quiet=TRUE))
+
+set.seed(123)
+```
+
+## Preparation and object creation
+### Setting directories and input files
+```{r set_inputs, message=F, warning=F}
+
+inputDir_local = file.path(inputDir, "mm10", "mouse_mammary_gland", "one_cell_multiome")
+
+outputDir_local = file.path(outputDir, "2.1_multiome_mouse_mammary_gland") ; if(!file.exists(outputDir_local)){dir.create(outputDir_local)}
+outputDir_objects = file.path(outputDir_local, "objects") ; if(!file.exists(outputDir_objects)){dir.create(outputDir_objects)}
+outputDir_plots = file.path(outputDir_local, "plots") ; if(!file.exists(outputDir_plots)){dir.create(outputDir_plots)}
+outputDir_tables = file.path(outputDir_local, "tables") ; if(!file.exists(outputDir_tables)){dir.create(outputDir_tables)}
+
+
+ld <- list.dirs(inputDir_local)
+
+fragpaths <- list.files(ld[grepl("/.*fragmentFiles", ld)], full.names = TRUE)
+fragpaths_k4 <- fragpaths[grepl(".*/h3k4me1/.*fragmentFiles/.*tsv.gz$", fragpaths)]
+fragpaths_k27 <- fragpaths[grepl(".*/h3k27me3/.*fragmentFiles/.*tsv.gz$", fragpaths)]
+fragpaths <- list(fragpaths_k27, fragpaths_k4)
+names(fragpaths) <- c("h3k27me3", "h3k4me1")
+
+rnapaths <- ld[grepl("/10XlikeMatrix_umi", ld)]
+
+rm(ld)
+
+```
+
+###  Loading annotation
+```{r annot, message=F, warning=F}
+consensus_peaks <- list("h3k27me3" = toGRanges(file.path(annotDir, "CREneg_peaks_h3k27me3.bed"), format="BED", header=FALSE),
+                        "h3k4me1" = toGRanges(file.path(annotDir, "CREneg_peaks_h3k4me1.bed"), format="BED", header=FALSE))
+```
+
+### Loading the bigwigs and tables
+```{r bw_tab, message=F, warning=F}
+ld <- list.dirs(inputDir)
+bw_paths <- list.files(ld[grepl(".*/mouse_mammary_gland/bigwig.*", ld)], full.names = TRUE)
+names(bw_paths) <- sub(".*D1888_CRE3-Mice8724_", "", bw_paths)
+  
+list_rna_bw <- list(rna_all = bw_paths[["all_rna_pseudobulk.bw"]],
+                    rna_luminal = bw_paths[["cluster_1_rna_luminal.bw"]],
+                    rna_basal = bw_paths[["cluster_0_rna_basal.bw"]],
+                    rna_luminal_sc = bw_paths[["T0302_luminal_cell.bw"]],
+                    rna_basal_sc = bw_paths[["T0290_basal_cell.bw"]])
+rm(ld)
+
+```
+
+###  Loading the FACS data
+```{r facs, message=F, warning=F}
+ld <- list.dirs(inputDir_local)
+facs_path <- list.files(ld[grepl("/facs", ld)], full.names = TRUE)
+facs_data <- read.csv(facs_path)
+rm(ld)
+row.names(facs_data) <- facs_data$CB
+facs_data <-  facs_data[, c(1,2)]
+colnames(facs_data) <- c("CD24", "CD49f") 
+
+```
+
+###  Creating the object 
+```{r create_object, message=F, warning=F, eval=F}
+## loading RNA data
+rna.data <- Read10X(data.dir = rnapaths)
+rna_seurat <- CreateSeuratObject(counts = rna.data,
+                             min.cells = 1,
+                             min.features = -1,
+                             project = "mouse_mammary_gland")
+
+## adding FACS annotation
+rna_seurat <- AddMetaData(
+  object = rna_seurat,
+  metadata = facs_data
+)
+
+## creating the multiome seurat objects 
+seurat_list <- list()
+
+for (i in names(fragpaths)){
+    message(paste0("### Making fragment object for ", i))
+    total_counts <- CountFragments(fragpaths[[i]])
+    barcodes <- total_counts$CB
+    frags <- CreateFragmentObject(path = fragpaths[[i]], cells = barcodes)
+    
+    message(paste0("### Making 50k bin matrix for ", i))
+    bin50k_kmatrix = GenomeBinMatrix(
+    frags,
+    genome = mm10,
+    cells = NULL,
+    binsize = 50000,
+    process_n = 10000,
+    sep = c(":", "_"),
+    verbose = TRUE)
+    
+    message(paste0("### Making peak matrix for ", i))
+    peak_matrix = FeatureMatrix(
+      frags,
+      features = consensus_peaks[[i]],
+      cells = NULL,
+      sep = c("-", "-"),
+      verbose = TRUE)
+    
+    message(paste0("### Creating chromatin assay for ", i))
+    chrom_assay <- CreateChromatinAssay(
+      counts = bin50k_kmatrix,
+      sep = c(":", "_"),
+      genome = "mm10",
+      fragments = fragpaths[[i]],
+      min.cells = 1,
+      min.features = -1)
+    
+    message(paste0("### Creating Seurat object for ", i))
+    seurat <- CreateSeuratObject(
+      counts = chrom_assay,
+      assay = "bin_50k")
+    
+    message(paste0("### Adding peak assay for ", i))
+    seurat[["peaks"]] <- CreateChromatinAssay(
+    counts = peak_matrix, genome = "mm10")
+    
+    message(paste0("### Adding RNA assay for ", i))
+    seurat <- AddMetaData(seurat, rna_seurat@meta.data)
+    seurat[["RNA"]] <- rna_seurat@assays[["RNA"]]
+
+    Annotation(seurat) <- annotations_mm10
+    
+    seurat <- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
+    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "frequency_count")
+    seurat@meta.data[["orig.ident"]] <- i
+    seurat_list[[i]] <- seurat
+    
+    rm(seurat)
+    rm(frags)
+    rm(total_counts)
+    rm(barcodes)
+    rm(fragments_per_cell)
+    rm(bin50k_matrix)
+    rm(peak_matrix)
+    rm(chromatin_assay)
+}
+
+saveRDS(seurat_list, file.path(outputDir_objects, "seurat_list.rds"))
+
+## merging h3k4me1 and h3k27me3 data into one object
+seurat <- merge(seurat_list[[1]], seurat_list[[2]])
+seurat <- JoinLayers(seurat, assay = "RNA")
+
+saveRDS(seurat, file.path(outputDir_objects, "seurat_cre_step1.rds"))
+
+```
+###  Reload the object - step1
+
+```{r load_objects, message=F, warning=F}
+
+seurat <- readRDS(file.path(outputDir_objects, "seurat_cre_step1.rds"))
+seurat_list <- readRDS(file.path(outputDir_objects, "seurat_list.rds"))
+
+```
+
+## FACS annotation
+### Gating
+```{r facs1, message=F, warning=F, fig.show="hold", out.width="50%"}
+facs_data <- facs_data %>%
+  mutate(phenotype = case_when(
+    (CD24 > 100000) | (CD24 > 25000 & CD49f < 8900) ~ "luminal",
+    TRUE ~ "basal"
+  ))
+
+ggplot(facs_data, aes(x = CD49f, y = CD24, color = phenotype)) +
+  geom_point(size = 3) + 
+  labs(x = "CD49f", y = "CD24", title = "CD24 vs CD49f by Phenotype") +
+  theme_minimal() +
+  scale_color_manual(values = c("luminal" = mypal[5], "basal" = mypal[4]))
+
+ggplot(facs_data, aes(x = log(CD49f), y = log(CD24), color = phenotype)) +
+  geom_point(size = 3) + 
+  labs(x = "log(CD49f)", y = "log(CD24)", title = "CD24 vs CD49f by Phenotype log") +
+  theme_minimal() +
+  scale_color_manual(values = c("luminal" = mypal[5], "basal" = mypal[4]))
+
+
+
+```
+
+### Adding FACS data as Seurat metadata
+```{r add_facs_data, message=F, warning=F, fig.show="hold", out.width="50%"}
+##the data will appear as phenotype column
+seurat <- AddMetaData(
+  object = seurat,
+  metadata = facs_data
+)
+
+```
+
+## QC
+### Weighted histograms
+```{r qc1, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+for (s in seurat_list){
+  p1 <- plot_weighted_hist(s) + ggtitle(print(s@meta.data[["orig.ident"]][1]), " DNA fragments")
+  p2 <- plot_weighted_hist(s, assay = "RNA") + ggtitle(print(s@meta.data[["orig.ident"]][1]), " RNA reads")
+  p3 <- plot_weighted_hist(s, assay = "RNA_features") + ggtitle(print(s@meta.data[["orig.ident"]][1]), " RNA features")
+  print(p1)
+  print(p2)
+  print(p3)
+  rm(s)
+}
+```
+### Filtering
+```{r qc2, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+min_reads_chromatin = 400
+min_reads_rna = 1000
+
+seurat@meta.data[["filtering"]] <- ifelse(seurat@meta.data$frequency_count > min_reads_chromatin & 
+                                          seurat@meta.data$nCount_RNA > min_reads_rna,
+                                                                             'pass', 'fail')
+```
+
+
+### FrIP and N fragments plots
+```{r qc3, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+p_frip <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("FRiP"),
+                  group.by = "orig.ident", split.by = NULL, pt.size = 0) +
+                  labs(title = "FRiP CRE mice") +
+                  stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                  theme(legend.position = "none") +
+                  scale_fill_manual(values = c(mypal[3], mypal[2]))
+print(p_frip)
+
+p_count <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("frequency_count"),
+                   group.by = "orig.ident", split.by = NULL, pt.size = 0, y.max = 12000) +
+                   labs(title = "Unique fragments per cell CRE") +
+                   stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                   theme(legend.position = "none") +
+                   scale_fill_manual(values = c(mypal[3], mypal[2]))
+print(p_count)
+
+p_count_rna <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("nCount_RNA"),
+                       group.by = "orig.ident", split.by = NULL, pt.size = 0) +
+                       labs(title = "Unique reads per cell RNA CRE") +
+                       stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                       theme(legend.position = "none") +
+                       scale_fill_manual(values = c(mypal[3], mypal[2]))
+print(p_count_rna)
+
+p_genes_rna <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("nFeature_RNA"),
+                        group.by = "orig.ident", split.by = NULL, pt.size = 0) +
+                        labs(title = "Unique genes per cell CRE") +
+                        stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                        theme(legend.position = "none") +
+                        scale_fill_manual(values = c(mypal[3], mypal[2]))
+print(p_genes_rna)
+
+```
+```{r qc3_save, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "frip_mouse_mammary_gland.pdf"),
+       plot = p_frip,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 130)
+
+ggsave(file.path(outputDir_plots, "frip_mouse_mammary_gland.pdf"),
+       plot = p_count,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 130)
+
+ggsave(file.path(outputDir_plots, "frip_mouse_mammary_gland.pdf"),
+       plot = p_genes_rna,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 130)
+
+ggsave(file.path(outputDir_plots, "frip_mouse_mammary_gland.pdf"),
+       plot = p_count_rna,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 130)
+```
+
+### DNA to RNA reads
+```{r qc_scatters, message=F, warning=F, fig.show="hold", out.width="50%"}
+seurat <- subset(seurat, subset = filtering == "pass")
+
+frags_to_rna_reads <- ggplot(seurat@meta.data, aes(x = frequency_count, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique RNA reads",
+                                title = "N unique DNA fragments vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+frags_to_genes <- ggplot(seurat@meta.data, aes(x = frequency_count, y = nFeature_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique genes",
+                                title = "N unique genes vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+genes_to_rna_reads <- ggplot(seurat@meta.data, aes(x = nFeature_RNA, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique genes",
+                                  y =  "N unique RNA reads",
+                                title = "N unique genes vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+frags_to_rna_reads
+frags_to_genes
+genes_to_rna_reads
+
+ggsave(file.path(outputDir_plots, "frags_to_rna_reads.pdf"),
+       plot = frags_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 120,
+       height = 80)
+
+ggsave(file.path(outputDir_plots, "frags_to_genes.pdf"),
+       plot = frags_to_genes,
+       device = "pdf",
+       units = "mm",
+       width = 120,
+       height = 80)
+
+ggsave(file.path(outputDir_plots, "genes_to_rna_reads.pdf"),
+       plot = genes_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 120,
+       height = 80)
+
+```
+
+
+## Clustering
+### Clustering by RNA
+```{r cluster_rna, message=F, warning=F, eval=F}
+seurat <- subset(seurat, subset = filtering == 'pass')
+DefaultAssay(seurat) <- "RNA"
+
+seurat <- SCTransform(seurat)
+seurat <- RunPCA(seurat)
+seurat <- RunUMAP(seurat, dims = 1:30, verbose = FALSE, seed.use = 42)
+
+seurat <- FindNeighbors(seurat, dims = 1:30, verbose = FALSE)
+seurat <- FindClusters(seurat, resolution = 0.2)
+
+DimPlot(seurat, cols = c(mypal[11], mypal[10]))
+
+saveRDS(seurat, file.path(outputDir_objects, "seurat_cre_processed_step2.rds"))
+```
+
+```{r read_rds2, message=F, warning=F}
+seurat <- readRDS(file.path(outputDir_objects, "seurat_cre_processed_step2.rds"))
+```
+
+
+### Clustering by epigenomic mark
+Separating h3k27me3 and h3k4me1 data
+```{r subset_cre, message=F, warning=F}
+
+cre_list <- list("h3k4me1" = subset(seurat, subset = orig.ident == "h3k4me1"), 
+                 "h3k27me3" = subset(seurat, subset = orig.ident == "h3k27me3"))
+
+```
+
+Running normalization, dim reduction and checking the principal components.
+```{r cluster_epi1, message=F, warning=F}
+
+for (mark in names(cre_list)){
+  DefaultAssay(cre_list[[mark]]) <- 'bin_50k'
+  cre_list[[mark]] <- RunTFIDF(cre_list[[mark]], assay = 'bin_50k')
+  cre_list[[mark]] <- FindTopFeatures(cre_list[[mark]], min.cutoff = 'q0')
+  cre_list[[mark]] <- RunSVD(cre_list[[mark]])
+  p <- DepthCor(cre_list[[mark]])
+  print(p)
+}
+
+```
+
+Component 1 should not be used.
+
+```{r cluster_epi2, message=F, warning=F, eval=F}
+
+for (mark in names(cre_list)){
+    cre_list[[mark]] <- RunUMAP(object = cre_list[[mark]],
+                                reduction = 'lsi',
+                                dims = 2:30)
+    cre_list[[mark]] <- FindNeighbors(object = cre_list[[mark]],
+                                      reduction = 'lsi',
+                                      dims = 2:30)
+    cre_list[[mark]] <- FindClusters(object = cre_list[[mark]],
+                                     algorithm = 3,
+                                     resolution = 0.8)
+    #p <- DimPlot(cre_list[[mark]])
+    #print(p)
+}
+
+saveRDS(cre_list, file.path(outputDir_objects, "seurat_cre_list_by_mark_processed_step2.rds"))
+```
+
+```{r reload_epi_list, message=F, warning=F}
+cre_list <- readRDS(file.path(outputDir_objects, "seurat_cre_list_by_mark_processed_step2.rds"))
+```
+
+Quick UMAPs to see sequencing-FACS correspondence
+```{r quick_umap, message=F, warning=F, fig.show="hold", out.width="50%"}
+DimPlot(object = seurat, label = TRUE, cols = c(mypal[11], mypal[10])) + labs(title = "RNA clusters")
+DimPlot(object = seurat, label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "RNA clusters, FACS annotation")
+
+DimPlot(object = cre_list[["h3k27me3"]], label = TRUE, cols = c(mypal[11], mypal[10])) + labs(title = "H3K27me3 clusters")
+DimPlot(object = cre_list[["h3k27me3"]], label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "H3K27me3 clusters, FACS annotation")
+
+DimPlot(object = cre_list[["h3k4me1"]], label = TRUE, cols = c(mypal[11], mypal[10])) + labs(title = "H3K4me1 clusters")
+DimPlot(object = cre_list[["h3k4me1"]], label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "H3K4me1 clusters, FACS annotation")
+```
+In RNA and K27: cluster 0 =  basal-like, cluster 1 = luminal-like.
+In K4 it is vice versa.
+
+Adding this annotation to meta_data:
+
+```{r diff_accessebility, message=F, warning=F, eval=F}
+
+tmp_vector <- cre_list[["h3k27me3"]]@meta.data[["seurat_clusters"]]
+annot_k27 <- ifelse(tmp_vector == 1, "luminal_like_k27", "basal_like_k27")
+cre_list[["h3k27me3"]]@meta.data[["annot_k27"]] <- annot_k27
+
+tmp_vector2 <- cre_list[["h3k27me3"]]@meta.data[["SCT_snn_res.0.2"]]
+annot_rna <- ifelse(tmp_vector2 == 1, "luminal_rna", "basal_rna")
+cre_list[["h3k27me3"]]@meta.data[["annot_rna"]] <- annot_rna
+
+tmp_vector <- cre_list[["h3k4me1"]]@meta.data[["seurat_clusters"]]
+annot_k4 <- ifelse(tmp_vector == 1, "basal_like_k4", "luminal_like_k4")
+cre_list[["h3k4me1"]]@meta.data[["annot_k4"]] <- annot_k4
+
+tmp_vector2 <- cre_list[["h3k4me1"]]@meta.data[["SCT_snn_res.0.2"]]
+annot_rna <- ifelse(tmp_vector2 == 1, "luminal_rna", "basal_rna")
+cre_list[["h3k4me1"]]@meta.data[["annot_rna"]] <- annot_rna
+
+cre_list[["h3k4me1"]]<- SetIdent(cre_list[["h3k4me1"]], value = "annot_k4")
+cre_list[["h3k27me3"]]<- SetIdent(cre_list[["h3k27me3"]], value = "annot_k27")
+
+tmp_vector3 <- seurat@meta.data[["SCT_snn_res.0.2"]]
+annot_rna <- ifelse(tmp_vector3 == 1, "luminal_rna", "basal_rna")
+seurat@meta.data[["annot_rna"]] <- annot_rna
+
+seurat <- SetIdent(seurat, value = "annot_rna")
+
+
+saveRDS(cre_list, file.path(outputDir_objects, "seurat_cre_list_by_mark_processed_step3.rds"))
+saveRDS(seurat, file.path(outputDir_objects, "seurat_cre_processed_step3.rds"))
+
+```
+
+Reload objects - step3
+```{r reload2, message=FALSE, warning=FALSE}
+cre_list <- readRDS(file.path(outputDir_objects, "seurat_cre_list_by_mark_processed_step3.rds"))
+seurat <- readRDS(file.path(outputDir_objects, "seurat_cre_processed_step3.rds"))
+```
+
+
+### UMAP plots 
+#### UMAPs colored by different annotations
+```{r cluster_plots, message=F, warning=F, fig.show="hold", out.width="50%"}
+cre_umap_rna <- DimPlot(object = seurat, label = TRUE, cols = c(mypal[11], mypal[10]), group.by = "annot_rna") + labs(title = "RNA clusters")
+cre_umap_rna_facs <- DimPlot(object = seurat, label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "RNA clusters, FACS annotation")
+
+cre_umap_k4 <- DimPlot(object = cre_list[["h3k4me1"]], label = TRUE, cols = c(mypal[11], mypal[10]), group.by = "annot_k4") + labs(title = "H3K4me1 clusters")
+cre_umap_k4_facs <- DimPlot(object = cre_list[["h3k4me1"]], label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "H3K4me1 clusters, FACS annotation")
+
+cre_umap_k27 <- DimPlot(object = cre_list[["h3k27me3"]], label = TRUE, cols = c(mypal[11], mypal[10]), group.by = "annot_k27") + labs(title = "H3K27me3 clusters")
+cre_umap_k27_facs <- DimPlot(object = cre_list[["h3k27me3"]], label = TRUE, cols = c(mypal[4], mypal[5]), group.by = "phenotype") +
+                         labs(title = "H3K27me3 clusters, FACS annotation")
+
+cre_umap_rna
+cre_umap_rna_facs
+cre_umap_k4
+cre_umap_k4_facs
+cre_umap_k27
+cre_umap_k27_facs
+
+```
+
+```{r save_cluster_plots, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "cre_umap_rna.pdf"),
+       plot = cre_umap_rna,
+       device = "pdf",
+       units = "mm",
+       width = 120,
+       height = 100)
+ggsave(file.path(outputDir_plots, "cre_umap_rna_facs.pdf"),
+       plot = cre_umap_rna_facs,
+       device = "pdf",
+       units = "mm",
+       width = 120,
+       height = 100)
+ggsave(file.path(outputDir_plots, "cre_umap_k4.pdf"),
+       plot = cre_umap_k4,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 100)
+ggsave(file.path(outputDir_plots, "cre_umap_k4_facs.pdf"),
+       plot = cre_umap_k4_facs,
+       device = "pdf",
+       units = "mm",
+       width = 80,
+       height = 100)
+ggsave(file.path(outputDir_plots, "cre_umap_k27.pdf"),
+       plot = cre_umap_k27,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 100)
+ggsave(file.path(outputDir_plots, "cre_umap_k27_facs.pdf"),
+       plot = cre_umap_k27_facs,
+       device = "pdf",
+       units = "mm",
+       width = 80,
+       height = 100)
+
+```
+
+
+#### Connected UMAP
+```{r connected_umap, message=F, warning=F}
+# Extract UMAP coordinates from each representation
+df1 <- cre_list[["h3k4me1"]]@reductions[["umap"]]@cell.embeddings %>% as.data.frame()
+df2 <- seurat@reductions[["umap"]]@cell.embeddings %>% as.data.frame()
+df3 <- cre_list[["h3k27me3"]]@reductions[["umap"]]@cell.embeddings %>% as.data.frame()
+
+# Extract information about cell type or cluster
+df1$cluster <- as.vector(cre_list[["h3k4me1"]]@meta.data[["annot_k4"]])
+df2$cluster <- as.vector(seurat@meta.data[["annot_rna"]])
+df3$cluster <- as.vector(cre_list[["h3k27me3"]]@meta.data[["annot_k27"]])
+
+# Add the info about the mark
+df1$mark <- "H3K4me1"
+df2$mark <- "RNA"
+df3$mark <- "H3K27me3"
+
+# Shift umap_1 for each dataset 
+df1$umap_1 <- df1$umap_1 - 15  # Shift H3K4me1 left
+df3$umap_1 <- df3$umap_1 + 20  # Shift H3K27me3 right
+
+# Create a list and bind dataframes into one
+dat.umap.lst <- list(df1, df2, df3)
+dat.umap.long <- dat.umap.lst %>% bind_rows()
+dat.umap.long$cell <- c(rownames(df1), rownames(df2), rownames(df3))
+
+# Define color palette for clusters
+
+cbPalette.ctype <- rep(c(mypal[10], mypal[11]), 3)
+names(cbPalette.ctype) <- unique(dat.umap.long$cluster)
+
+connected_umap_cre <- ggplot(dat.umap.long, aes(x = umap_1, y = umap_2, color = cluster, group = cell)) +
+                             geom_point(alpha = 1) +
+                             geom_path(alpha = 0.1) +
+                             scale_color_manual(values = cbPalette.ctype) +
+                             theme_classic() + ggtitle("H3K4me1 -> RNA -> H3K27me3")
+connected_umap_cre 
+
+```
+
+```{r connected_umap_save, message=F, warning=F}
+ggsave(file.path(outputDir_plots, "connected_umap_cre_larger.pdf"),
+       plot = connected_umap_cre,
+       device = "pdf",
+       units = "mm",
+       width = 260,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "connected_umap_cre_smaller.pdf"),
+       plot = connected_umap_cre,
+       device = "pdf",
+       units = "mm",
+       width = 220,
+       height = 80)
+
+```
+
+
+## Differential analysis
+### RNA cluster markers
+```{r markers_rna, message=F, warning=F}
+
+rna_markers <- FindMarkers(seurat, assay = "SCT", ident.1 = "luminal_rna")
+DotPlot(seurat,
+        features = rownames(rna_markers)[1:20],
+        cols = c("#EDE9E7", "#7e6148")) +
+        coord_flip() + labs(title = "Luminal vs basal markers, RNA") 
+
+```
+```{r markers_rna_save, message=F, warning=F, eval=F}
+
+write.csv(rna_markers, file.path(outputDir_tables, "cre_rna_cluster_markers.csv"))
+
+```
+
+
+### Differentially "acessible" bins and peaks - basal vs luminal
+```{r markers_epi, message=F, warning=F, eval=F}
+DefaultAssay(cre_list[["h3k4me1"]]) <- 'bin_50k'
+DefaultAssay(cre_list[["h3k27me3"]]) <- 'bin_50k'
+
+da_bins_k4 <- FindMarkers(
+  object = cre_list[["h3k4me1"]],
+  ident.1 = "luminal_like_k4", 
+  ident.2 = "basal_like_k4",
+  test.use = 'wilcox',
+  min.pct = 0.1
+)
+da_bins_k4$bin <- rownames(da_bins_k4)
+da_bins_k4$query_region <- rownames(da_bins_k4)
+
+da_bins_k27 <- FindMarkers(
+  object = cre_list[["h3k27me3"]],
+  ident.1 = "luminal_like_k27", 
+  ident.2 = "basal_like_k27",
+  test.use = 'wilcox',
+  min.pct = 0.1
+)
+da_bins_k27$bin <- rownames(da_bins_k27)
+da_bins_k27$query_region <- rownames(da_bins_k27)
+
+DefaultAssay(cre_list[["h3k4me1"]]) <- 'peaks'
+DefaultAssay(cre_list[["h3k27me3"]]) <- 'peaks'
+
+da_peaks_k4 <- FindMarkers(
+  object = cre_list[["h3k4me1"]],
+  ident.1 = "luminal_like_k4", 
+  ident.2 = "basal_like_k4",
+  test.use = 'wilcox',
+  min.pct = 0.1
+)
+da_peaks_k4$query_region <- rownames(da_peaks_k4) #to do inner_join with the closest feature
+colnames(da_peaks_k4) <- c("p_val", "avg_log2FC", "pct.luminal_like", "pct.basal_like", "p_val_adj", "query_region")
+
+da_peaks_k27 <- FindMarkers(
+  object = cre_list[["h3k27me3"]],
+  ident.1 = "luminal_like_k27", 
+  ident.2 = "basal_like_k27",
+  test.use = 'wilcox',
+  min.pct = 0.1
+)
+da_peaks_k27$query_region <- rownames(da_peaks_k27)
+colnames(da_peaks_k27) <- c("p_val", "avg_log2FC", "pct.luminal_like", "pct.basal_like", "p_val_adj", "query_region")
+
+```
+
+Finding closest features. 
+```{r closest_features, message=F, warning=F, eval=F}
+
+features_da_k27 <- ClosestFeature(cre_list[["h3k27me3"]], regions = rownames(da_peaks_k27), annotation = annotations_mm10)
+features_da_k4 <- ClosestFeature(cre_list[["h3k4me1"]], regions = rownames(da_peaks_k4), annotation = annotations_mm10)
+
+da_peaks_k27 <- inner_join(da_peaks_k27, features_da_k27, by = "query_region")
+da_peaks_k4 <- inner_join(da_peaks_k4, features_da_k4, by = "query_region")
+
+features_da_k27_bins <- ClosestFeature(cre_list[["h3k27me3"]], regions = rownames(da_bins_k27), annotation = annotations_mm10)
+features_da_k4_bins <- ClosestFeature(cre_list[["h3k4me1"]], regions = rownames(da_bins_k4), annotation = annotations_mm10)
+
+da_bins_k27 <- inner_join(da_bins_k27, features_da_k27_bins, by = "query_region")
+da_bins_k4 <- inner_join(da_bins_k4, features_da_k4_bins, by = "query_region")
+
+
+
+write.csv(da_peaks_k27, file.path(outputDir_tables, "cre_diff_peaks_with_closest_genes_k27.csv"))
+write.csv(da_peaks_k4, file.path(outputDir_tables, "cre_diff_peaks_with_closest_genes_k4.csv"))
+
+write.csv(da_bins_k27, file.path(outputDir_tables, "cre_diff_bins_with_closest_genes_k27.csv"))
+write.csv(da_bins_k4, file.path(outputDir_tables, "cre_diff_bins_with_closest_genes_k4.csv"))
+
+```
+
+
+```{r closest_features2, message=F, warning=F, eval=F}
+intersect(row.names(rna_markers[rna_markers$p_val_adj < 0.05, ]),
+          da_bins_k27[da_bins_k27$p_val < 0.05, ]$gene_name)
+#Top 3:  "Cxcl14"        "Muc4"          "Fst" 
+
+intersect(row.names(rna_markers[rna_markers$p_val_adj < 0.05, ]),
+          da_bins_k4[da_bins_k4$p_val < 0.05, ]$gene_name)
+
+#Top 3: "Apoe"          "Cxcl14"        "Sparc" 
+
+roi = c("Cxcl14", "Muc4", "Fst", "Apoe","Sparc")
+VlnPlot(seurat, roi, assay = "SCT", group.by = "annot_rna", cols = c(mypal[11], mypal[10]))
+
+```
+
+## Coverage plots
+### Using the epigenomic annotation
+```{r prep_tracks, message=F, warning=F}
+DefaultAssay(cre_list[["h3k4me1"]]) <- "bin_50k"
+DefaultAssay(cre_list[["h3k27me3"]]) <- "bin_50k"
+
+cre_list[["h3k4me1"]] <- SetIdent(cre_list[["h3k4me1"]], value = cre_list[["h3k4me1"]]@meta.data[["annot_k4"]])
+cre_list[["h3k27me3"]] <- SetIdent(cre_list[["h3k27me3"]], value = cre_list[["h3k27me3"]]@meta.data[["annot_k27"]])
+```
+
+Sub-setting the max cell for single-cell tracks.
+```{r subset_max, message=F, warning=F}
+# take one well-covered luminal and basal cell that are non-ambiguously annotated by all annotations 
+max_cell_k27 <- subset(cre_list[["h3k27me3"]], cells = c("L539C172", "L539C186"))
+max_cell_k4 <- subset(cre_list[["h3k4me1"]], cells = c("L539C302", "L539C290")) 
+
+```
+
+#### Fst
+Marker of basal cells by RNA. Different in H3K27me3 in basal-like and luminal-like cells by H3K27me3
+```{r cov_plot_fst, message=F, warning=F}
+#roi="Fst"
+#chr13:114,404,115-114,509,113
+roi <- GRanges(seqnames = Rle(c("chr13"), c(1)),
+               ranges = IRanges(114440000, end = 114500000, names = "Fst"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 800) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+p_fst_k27 <- CombineTracks(plotlist = list(cov_plot_k27,gene_plot),
+                       heights = c(15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+p_fst_expression <- VlnPlot(seurat, "Fst", assay = "SCT", group.by = "annot_rna", cols = c(mypal[11], mypal[10]))
+
+p_fst_k27
+p_fst_expression
+
+```
+
+#### Apoe
+Marker of basal cells by RNA. Different in H3K4me1 in basal-like and luminal-like cells by H3K4me1
+```{r cov_plot_apoe, message=F, warning=F}
+#roi="Apoe"
+#chr7:19,684,744-19,704,653
+roi <- GRanges(seqnames = Rle(c("chr7"), c(1)),
+               ranges = IRanges(19689094, end = 19702731, names = "Apoe"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 800) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+
+p_apoe_k4 <- CombineTracks(plotlist = list(cov_plot_k4,gene_plot),
+                       heights = c(15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+p_apoe_expression <- VlnPlot(seurat, "Apoe", assay = "SCT", group.by = "annot_rna", cols = c(mypal[11], mypal[10]))
+
+p_apoe_k4
+p_apoe_expression
+
+```
+
+```{r save_fst_tracks, message=F, warning=F}
+ggsave(file.path(outputDir_plots, "fst_tracks_by_epigenetic_annotation.pdf"),
+       plot = p_fst_k27,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "apoe_tracks_by_epigenetic_annotation.pdf"),
+       plot = p_apoe_k4,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+```
+
+
+### Using the RNA annotation
+
+```{r prep_tracks2, message=F, warning=F}
+cre_list[["h3k4me1"]] <- SetIdent(cre_list[["h3k4me1"]], value = cre_list[["h3k4me1"]]@meta.data[["annot_rna"]])
+cre_list[["h3k27me3"]] <- SetIdent(cre_list[["h3k27me3"]], value = cre_list[["h3k27me3"]]@meta.data[["annot_rna"]])
+max_cell_k27 <- SetIdent(max_cell_k27, value = max_cell_k27@meta.data$annot_rna)
+max_cell_k4 <- SetIdent(max_cell_k4, value = max_cell_k4@meta.data$annot_rna)
+
+```
+
+### Keratines
+
+```{r cov_plot_krt, message=F, warning=F}
+#Keratine locus
+#chr11:100,117,140-100,448,915
+
+roi <- GRanges(seqnames = Rle(c("chr11"), c(1)),
+               ranges = IRanges(start = 100117140, end = 100339961, names = "Krt"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 4000) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell_k27,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 4000) +
+  ggtitle("H3K27me3 single cell") +
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 4000) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_k4_max <- CoveragePlot(
+  object = max_cell_k4,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 4000) +
+  ggtitle("H3K4me1 single cell") +
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_rna <- BigwigTrack(
+                     bigwig = list_rna_bw,
+                     region = roi,
+                     smooth = 1000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = rep(mypal[1], 5)) +
+                     theme(legend.position = "none") + 
+                     ggtitle("RNA pseudobulk")
+  
+
+p_krt <- CombineTracks(plotlist = list(cov_plot_rna,
+                                       cov_plot_k27_max, cov_plot_k27,
+                                       cov_plot_k4_max, cov_plot_k4, gene_plot),
+                       heights = c(40,15,15,15,15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+
+tile_plot_k27 <- TilePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 2000) +  scale_fill_gradient(low = "white", high = "#00806c")
+
+
+tile_plot_k4 <- TilePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 2000) +  scale_fill_gradient(low = "white", high = "#1c6779")
+
+tiles_krt <- CombineTracks(plotlist = list(tile_plot_k27, tile_plot_k4),
+                       heights = c(15,15)) & theme(axis.title.y = element_text(size = 7)) 
+
+p_krt
+tiles_krt
+
+```
+
+```{r save_krt, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "krt_tracks_by_rna.pdf"),
+       plot = p_krt,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 240)
+
+ggsave(file.path(outputDir_plots, "krt_tiles_by_rna.pdf"),
+       plot = tiles_krt,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+```
+
+
+##### Krt19
+
+```{r cov_plot_krt19, message=F, warning=F}
+#roi="Krt19"
+#chr11:100,138,496-100,148,799
+
+roi <- GRanges(seqnames = Rle(c("chr11"), c(1)),
+               ranges = IRanges(100138496, end = 100148799, names = "Krt19"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell_k27,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 single cell") +
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_k4_max <- CoveragePlot(
+  object = max_cell_k4,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 single cell") +
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_rna <- BigwigTrack(
+                     bigwig = list_rna_bw,
+                     region = roi,
+                     smooth = 200,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = rep(mypal[1], 5)) +
+                     theme(legend.position = "none") + 
+                     ggtitle("RNA pseudobulk")
+  
+
+p_krt19 <- CombineTracks(plotlist = list(cov_plot_rna,
+                                       cov_plot_k27_max, cov_plot_k27,
+                                       cov_plot_k4_max, cov_plot_k4, gene_plot),
+                       heights = c(30,15,15,15,15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+
+tile_plot_k27 <- TilePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 400) +  scale_fill_gradient(low = "white", high = "#00806c")
+
+
+tile_plot_k4 <- TilePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 400) +  scale_fill_gradient(low = "white", high = "#1c6779")
+
+tiles_krt19 <- CombineTracks(plotlist = list(tile_plot_k27, tile_plot_k4),
+                       heights = c(15,15)) & theme(axis.title.y = element_text(size = 7)) 
+
+p_krt19
+tiles_krt19
+
+```
+
+```{r save_krt19, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "krt19_tracks_by_rna.pdf"),
+       plot = p_krt19,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 240)
+
+ggsave(file.path(outputDir_plots, "krt19_tiles_by_rna.pdf"),
+       plot = tiles_krt19,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+```
+
+##### Krt14
+
+```{r cov_plot_krt14, message=F, warning=F}
+#roi="Krt14"
+#chr11:100,198,634-100,211,215
+
+
+max_cell_k27 <- subset(cre_list[["h3k27me3"]], cells = c("L539C172", "L539C186"))
+max_cell_k4 <- subset(cre_list[["h3k4me1"]], cells = c("L539C302", "L539C290")) 
+
+roi <- GRanges(seqnames = Rle(c("chr11"), c(1)),
+               ranges = IRanges(100198634, end = 100211215, names = "Krt14"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell_k27,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 single cell") +
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_k4_max <- CoveragePlot(
+  object = max_cell_k4,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 single cell") +
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_rna <- BigwigTrack(
+                     bigwig = list_rna_bw,
+                     region = roi,
+                     smooth = 200,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = rep(mypal[1], 5)) +
+                     theme(legend.position = "none") + 
+                     ggtitle("RNA pseudobulk")
+  
+
+p_krt14 <- CombineTracks(plotlist = list(cov_plot_rna,
+                                       cov_plot_k27_max, cov_plot_k27,
+                                       cov_plot_k4_max, cov_plot_k4, gene_plot),
+                       heights = c(30,15,15,15,15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+
+tile_plot_k27 <- TilePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 200) +  scale_fill_gradient(low = "white", high = "#00806c")
+
+
+tile_plot_k4 <- TilePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 200) +  scale_fill_gradient(low = "white", high = "#1c6779")
+
+tiles_krt14 <- CombineTracks(plotlist = list(tile_plot_k27, tile_plot_k4),
+                       heights = c(15,15)) & theme(axis.title.y = element_text(size = 7)) 
+
+tiles_krt14
+p_krt14
+
+```
+
+```{r save_krt14, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "krt14_tracks_by_rna.pdf"),
+       plot = p_krt14,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 240)
+
+ggsave(file.path(outputDir_plots, "krt14_tiles_by_rna.pdf"),
+       plot = tiles_krt14,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+```
+
+##### Krt17
+
+```{r cov_plot_krt17, message=F, warning=F}
+#roi="Krt17"
+#chr11:100,252,878-100,265,917
+
+roi <- GRanges(seqnames = Rle(c("chr11"), c(1)),
+               ranges = IRanges(100252878, end = 100265917, names = "Krt17"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell_k27,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K27me3 single cell") +
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_k4_max <- CoveragePlot(
+  object = max_cell_k4,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 400) +
+  ggtitle("H3K4me1 single cell") +
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_rna <- BigwigTrack(
+                     bigwig = list_rna_bw,
+                     region = roi,
+                     smooth = 200,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = rep(mypal[1], 5)) +
+                     theme(legend.position = "none") + 
+                     ggtitle("RNA pseudobulk")
+  
+
+p_krt17 <- CombineTracks(plotlist = list(cov_plot_rna,
+                                       cov_plot_k27_max, cov_plot_k27,
+                                       cov_plot_k4_max, cov_plot_k4, gene_plot),
+                       heights = c(30,15,15,15,15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+
+tile_plot_k27 <- TilePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 200) +  scale_fill_gradient(low = "white", high = "#00806c")
+
+
+tile_plot_k4 <- TilePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 200) +  scale_fill_gradient(low = "white", high = "#1c6779")
+
+tiles_krt17 <- CombineTracks(plotlist = list(tile_plot_k27, tile_plot_k4),
+                       heights = c(15,15)) & theme(axis.title.y = element_text(size = 7)) 
+
+p_krt17
+tiles_krt17
+
+```
+
+```{r save_krt17, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "krt17_tracks_by_rna.pdf"),
+       plot = p_krt17,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 240)
+
+ggsave(file.path(outputDir_plots, "krt17_tiles_by_rna.pdf"),
+       plot = tiles_krt17,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+```
+
+
+### A region with differences in both K27 & K4
+
+```{r cov_plot_region1, message=F, warning=F}
+roi <- GRanges(seqnames = Rle(c("chr2"), c(1)),
+                       ranges = IRanges(33005895, end = 34356499, names = "roi"))
+
+gene_plot <- AnnotationPlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi)
+
+cov_plot_k27 <- CoveragePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000) +
+  ggtitle("H3K27me3 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell_k27,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000) +
+  ggtitle("H3K27me3 single cell") +
+  scale_fill_manual(values = c(mypal[3], mypal[3], mypal[3]))
+
+cov_plot_k4 <- CoveragePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000) +
+  ggtitle("H3K4me1 pseudobulk") + 
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_k4_max <- CoveragePlot(
+  object = max_cell_k4,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000) +
+  ggtitle("H3K4me1 single cell") +
+  scale_fill_manual(values = c(mypal[2], mypal[2], mypal[2]))
+
+cov_plot_rna <- BigwigTrack(
+                     bigwig = list_rna_bw,
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = rep(mypal[1], 5)) +
+                     theme(legend.position = "none") + 
+                     ggtitle("RNA pseudobulk")
+  
+p <- CombineTracks(plotlist = list(cov_plot_rna,
+                                       cov_plot_k27_max, cov_plot_k27,
+                                       cov_plot_k4_max, cov_plot_k4, gene_plot),
+                       heights = c(30,15,15,15,15,8)) &
+                       theme(axis.title.y = element_text(size = 7)) 
+
+tile_plot_k27 <- TilePlot(
+  object = cre_list[["h3k27me3"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 5000) +  scale_fill_gradient(low = "white", high = "#00806c")
+
+
+tile_plot_k4 <- TilePlot(
+  object = cre_list[["h3k4me1"]],
+  region = roi,
+  tile.cells = 70,
+  tile.size = 5000) +  scale_fill_gradient(low = "white", high = "#1c6779")
+
+tiles <- CombineTracks(plotlist = list(tile_plot_k27, tile_plot_k4),
+                       heights = c(15,15)) & theme(axis.title.y = element_text(size = 7)) 
+
+tiles
+p
+
+```
+
+```{r save_region1, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "region1_tracks_window10000_by_rna.pdf"),
+       plot = p,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 240)
+
+ggsave(file.path(outputDir_plots, "region1_tiles_window10000_by_rna.pdf"),
+       plot = tiles,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 150)
+
+```
+
+
+### Expression of the genes in these regions 
+```{r ref_expr, warning=FALSE, message=FALSE}
+
+roi_krt = c("Krt15", "Krt19", "Krt14", "Krt16", "Krt17", "Eif1")
+p_genes_rna_krt <- VlnPlot(seurat, roi_krt, assay = "SCT", group.by = "annot_rna", cols = c(mypal[11], mypal[10]))
+
+
+roi_region1 = c("Garnl3", "Ralgps1", "Zbtb34", "Lmx1b", "Mvb12b", "Gm13403", "C230014O12Rik", "Angptl2", "Zbtb43", "Gm13530", "9430024E24Rik", "Gm13404", "Pbx3")
+p_genes_rna_region1 <- VlnPlot(seurat, roi_region1, assay = "SCT", group.by = "annot_rna", cols = c(mypal[11], mypal[10]))
+
+p_genes_rna_krt
+p_genes_rna_region1
+
+```
+
+```{r save_genes, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "genes_rna_region1.pdf"),
+       plot = p_genes_rna_region1,
+       device = "pdf",
+       units = "mm",
+       width = 250,
+       height = 250)
+
+ggsave(file.path(outputDir_plots, "genes_rna_krt.pdf"),
+       plot = p_genes_rna_krt,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 200)
+```
+
