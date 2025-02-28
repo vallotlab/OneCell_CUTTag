@@ -155,8 +155,6 @@ The **input** folder should be created by the user and organized as follows :
 - The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
 - The two bigwigs of the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, GSE217970: STARR- 
   ChIP H3K27Ac for a full grown oocyte). 
-
-\
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
 
@@ -188,11 +186,11 @@ Expected output of each of the scripts can be seen in the html files in the *scr
 \
 \
 The output of the scripts was used in the following figures of the article (**TO UPDATE WHEN FINAL VERSION**):
-- 1.1_technique_comparison: Fig1b-c, Extended FigXXX
-- 1.2_sample_type_comparison: Fig1d
-- 2.1_multiome_mm468: Fig1xxx, Extended FigXXX
-- 2.2_multiome_zygotes: Fig2a-c, Extended FigXXX
-- 2.3_multiome_mouse_mammary_gland: Fig2d-f, Extended FigXXX
+- 1.1_technique_comparison: Fig1 bc, Ext Fig2 ab
+- 1.2_sample_type_comparison: Fig1 d
+- 2.1_multiome_mouse_mammary_gland: Fig1 e, Fig2 bc, Ext Fig3 bcf
+- 2.2_multiome_persisters: Fig1 e, Fig2 ef
+- 2.3_multiome_zygotes: Fig1 e, Fig2 ghi, Ext Fig4 abc
 
 ## 4. Runtime
 On a standard laptop (MacBook Pro M1, 16Gb RAM), the estimated runtime for all of the scripts does not exceed 1h.
