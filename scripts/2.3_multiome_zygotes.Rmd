@@ -1,0 +1,1068 @@
+---
+title: "2.3_multiome_zygotes"
+author: "Anna Schwager"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+Load the global variables 
+```{r source, message=F, warning=F}
+here::i_am("scripts/2.3_multiome_zygotes.Rmd")
+mainDir = here::here()
+source(knitr::purl(file.path(mainDir,"scripts/global_variables.Rmd"), quiet=TRUE))
+source(knitr::purl(file.path(mainDir, "scripts/functions.Rmd"), quiet=TRUE))
+
+set.seed(123)
+#scales::show_col(mypal)
+```
+
+## Preparation and object creation
+### Setting directories and input files
+```{r set_inputs, message=F, warning=F}
+inputDir_local = file.path(inputDir, "mm10", "zygotes", "one_cell_multiome")
+
+outputDir_local = file.path(outputDir, "2.3_multiome_zygotes") ; if(!file.exists(outputDir_local)){dir.create(outputDir_local)}
+outputDir_objects = file.path(outputDir_local, "objects") ; if(!file.exists(outputDir_objects)){dir.create(outputDir_objects)}
+outputDir_plots = file.path(outputDir_local, "plots") ; if(!file.exists(outputDir_plots)){dir.create(outputDir_plots)}
+outputDir_tables = file.path(outputDir_local, "tables") ; if(!file.exists(outputDir_tables)){dir.create(outputDir_tables)}
+
+ld <- list.dirs(inputDir_local)
+fragpaths <- list.files(ld[grepl("/.*fragmentFiles", ld)], full.names = TRUE)
+fragpaths <- fragpaths[grepl(".*/h3k27me3/.*fragmentFiles/.*tsv.gz$", fragpaths)]
+names(fragpaths) <- str_replace(fragpaths, ".*fragmentFiles/(.*)_pA.fragments.tsv.gz", replacement = "\\1")
+
+rnapaths <- ld[grepl("/10XlikeMatrix_umi", ld)]
+
+rm(ld)
+
+```
+
+
+### Loading the bigwigs and tables
+```{r bw_tab, message=F, warning=F}
+ld <- list.dirs(inputDir)
+bw_paths <- list.files(ld[grepl(".*zygotes/bigwigs.*", ld)], full.names = TRUE)
+names(bw_paths) <- c("bulk_h3k27me3_zygotes", "pseudobulk_rna_zygotes", "max_cell_rna_zygotes","bulk_h3k27ac_fgo")
+
+# the matrix was generated from the bigwigs using the multiBigwigSummary function from deeptools 
+matrix_500kb <- read.delim(list.files(ld[grepl(".*zygotes/matrix_500kb.*", ld)], full.names = TRUE))
+colnames(matrix_500kb) <- c("chr", "start", "end", "bulk_h3k27me3_5", "bulk_h3k27me3_6", "zygote_h3k27me3_4", "zygote_h3k27me3_5", "fgo_h3k27ac_1", "fgo_h3k27ac_2",
+                            "zygote_h3k27me3_4_cell1", "zygote_h3k27me3_4_cell2", "zygote_h3k27me3_4_cell3", "zygote_h3k27me3_4_cell4",
+                            "zygote_h3k27me3_5_cell1", "zygote_h3k27me3_5_cell3", "zygote_h3k27me3_5_cell4","zygote_h3k27me3_5_cell5",
+                            "zygote_h3k27me3_5_cell6", "zygote_h3k27me3_5_cell7", "zygote_h3k27me3_5_cell8")
+#cell 5 failed - remove it from corr
+matrix_500kb <- matrix_500kb[ , -which(names(matrix_500kb) %in% c("zygote_h3k27me3_5_cell5"))]
+
+```
+
+### Loading annotation
+```{r annot, message=F, warning=F}
+consensus_peaks_k27 <- toGRanges(file.path(annotDir, "mouse_zygote_peaks_h3k27me3.bed"), format="BED", header=FALSE)
+```
+
+
+###  Creating the object 
+```{r create_object, message=F, warning=F, eval=F}
+## loading RNA data
+rna.data <- Read10X(data.dir = rnapaths)
+rna_seurat <- CreateSeuratObject(counts = rna.data,
+                             min.cells = 1,
+                             min.features = -1,
+                             project = "zygotes")
+
+## creating the multiome seurat objects 
+seurat_list <- list()
+for (i in names(fragpaths)){
+    message(paste0("### Making fragment object for ", i))
+    total_counts <- CountFragments(fragpaths[[i]])
+    barcodes <- total_counts$CB
+    frags <- CreateFragmentObject(path = fragpaths[[i]], cells = barcodes)
+    
+    message(paste0("### Making 50k bin matrix for ", i))
+    bin50k_kmatrix = GenomeBinMatrix(
+    frags,
+    genome = mm10,
+    cells = NULL,
+    binsize = 50000,
+    process_n = 10000,
+    sep = c(":", "_"),
+    verbose = TRUE)
+    
+    message(paste0("### Making peak matrix for ", i))
+    peak_matrix = FeatureMatrix(
+      frags,
+      features = consensus_peaks_k27,
+      cells = NULL,
+      sep = c("-", "-"),
+      verbose = TRUE)
+    
+    message(paste0("### Creating chromatin assay for ", i))
+    chrom_assay <- CreateChromatinAssay(
+      counts = bin50k_kmatrix,
+      sep = c(":", "_"),
+      genome = "mm10",
+      fragments = fragpaths[[i]],
+      min.cells = 1,
+      min.features = -1)
+    
+    message(paste0("### Creating Seurat object for ", i))
+    seurat <- CreateSeuratObject(
+      counts = chrom_assay,
+      assay = "bin_50k")
+    
+    message(paste0("### Adding peak assay for ", i))
+    seurat[["peaks"]] <- CreateChromatinAssay(
+    counts = peak_matrix, genome = "mm10")
+    
+    message(paste0("### Adding RNA assay for ", i))
+    seurat <- AddMetaData(seurat, rna_seurat@meta.data)
+    seurat[["RNA"]] <- rna_seurat@assays[["RNA"]]
+
+    Annotation(seurat) <- annotations_mm10
+    
+    seurat <- AddMetaData(seurat, CountFragments(fragpaths[[i]]))
+    seurat <- FRiP(object = seurat, assay = "peaks", total.fragments = "frequency_count")
+    seurat@meta.data[["orig.ident"]] <- i
+    seurat_list[[i]] <- seurat
+    
+    rm(seurat)
+    rm(frags)
+    rm(total_counts)
+    rm(barcodes)
+    rm(fragments_per_cell)
+    rm(bin50k_matrix)
+    rm(peak_matrix)
+    rm(chromatin_assay)
+}
+
+saveRDS(seurat_list, file.path(outputDir_objects, "seurat_list.rds"))
+
+## merging replicates into one object
+seurat <- merge(seurat_list[[1]], seurat_list[[2]])
+seurat <- JoinLayers(seurat, assay = "RNA")
+
+saveRDS(seurat, file.path(outputDir_objects, "seurat_zygotes_step1.rds"))
+
+```
+
+```{r load_objects, message=F, warning=F}
+
+seurat <- readRDS(file.path(outputDir_objects, "seurat_zygotes_step1.rds"))
+seurat_list <- readRDS(file.path(outputDir_objects, "seurat_list.rds"))
+
+```
+
+
+
+## QC
+### Weighted histograms
+```{r qc1, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+for (s in seurat_list){
+  p1 <- plot_weighted_hist(s) + ggtitle(print(s@meta.data[["orig.ident"]][1]), " DNA fragments")
+  p2 <- plot_weighted_hist(s, assay = "RNA") + ggtitle(print(s@meta.data[["orig.ident"]][1]), " RNA reads")
+  p3 <- plot_weighted_hist(s, assay = "RNA_features") + ggtitle(print(s@meta.data[["orig.ident"]][1]), " RNA features")
+  print(p1)
+  print(p2)
+  print(p3)
+  rm(s)
+}
+
+```
+
+### Filtering 
+
+```{r qc2, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+min_reads_chromatin = 600
+min_reads_rna = 1000
+
+seurat@meta.data[["filtering"]] <- ifelse(seurat@meta.data$frequency_count > min_reads_chromatin & 
+                                          seurat@meta.data$nCount_RNA > min_reads_rna,
+                                                                             'pass', 'fail')
+```
+
+### Values per cell
+```{r qc3, message=F, warning=F, fig.show="hold"}
+
+df <- data.frame(cell <- seurat@meta.data$CB,
+                 dna_fragments <- seurat@meta.data$frequency_count,
+                 frip <- seurat@meta.data$FRiP,
+                 rna_counts <- seurat@meta.data$nCount_RNA,
+                 n_genes <- seurat@meta.data$nFeature_RNA,
+                 filtering <- seurat@meta.data$filtering)
+df
+
+#1 cell failed
+
+```
+
+### FrIP and N fragments plots
+Together
+```{r qc4, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+p_count <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("frequency_count"),
+                   group.by = NULL, split.by = NULL, pt.size = 1) +
+                   labs(title = "Unique fragments per cell zygotes") +
+                   stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                   theme(legend.position = "none") +
+                   scale_fill_manual(values = c(mypal[3]))
+
+
+p_count <- ggplot(p_count[[1]][["data"]], aes(x=ident, y=frequency_count)) + 
+                  geom_boxplot(fill=mypal[3]) +
+                  geom_dotplot(binaxis='y', stackdir='center') +
+                  theme_classic() +
+                  labs(title = "Unique fragments per cell zygotes") +
+                  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+                  scale_y_continuous(expand = c(0, 0), limits = c(0, 35000))
+  
+print(p_count)
+
+p_frip <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("FRiP"),
+                   group.by = NULL, split.by = NULL, pt.size = 1) +
+                   labs(title = "FRiP zygotes") +
+                   stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                   theme(legend.position = "none") +
+                   scale_fill_manual(values = c(mypal[3], mypal[3]))
+
+
+p_frip <- ggplot(p_frip[[1]][["data"]], aes(x=ident, y=FRiP)) + 
+                  geom_boxplot(fill=mypal[3]) +
+                  geom_dotplot(binaxis='y', stackdir='center') +
+                  theme_classic() +
+                  labs(title = "Unique fragments per cell zygotes") +
+                  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+                  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) 
+            
+  
+print(p_frip)
+
+p_count_rna <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("nCount_RNA"),
+                       group.by = NULL, split.by = NULL, pt.size = 1) +
+                       labs(title = "Unique reads per cell zygotes") +
+                       stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                       theme(legend.position = "none") +
+                       scale_fill_manual(values = c(mypal[3]))
+
+p_count_rna <- ggplot(p_count_rna[[1]][["data"]], aes(x=ident, y=nCount_RNA)) + 
+                  geom_boxplot(fill=mypal[1]) +
+                  geom_dotplot(binaxis='y', stackdir='center') +
+                  theme_classic() +
+                  labs(title = "Unique reads per cell zygotes") +
+                  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))
+
+print(p_count_rna)
+
+p_genes_rna <- VlnPlot(subset(seurat, subset = filtering == 'pass'), c("nFeature_RNA"),
+                        group.by = NULL, split.by = NULL, pt.size = 1) +
+                        labs(title = "Unique genes per cell zygotes") +
+                        stat_summary(fun.y = median, geom='point', size = 2, colour = "black") +
+                        theme(legend.position = "none") +
+                        scale_fill_manual(values = c(mypal[3], mypal[3]))
+
+p_genes_rna <- ggplot(p_genes_rna[[1]][["data"]], aes(x=ident, y=nFeature_RNA)) + 
+                  geom_boxplot(fill=mypal[1]) +
+                  geom_dotplot(binaxis='y', stackdir='center') +
+                  theme_classic() +
+                  labs(title = "Unique genes per cell zygotes") +
+                  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))
+print(p_genes_rna)
+
+```
+
+
+```{r save1, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "fragments_zygotes.pdf"),
+       plot = p_count,
+       device = "pdf",
+       units = "mm",
+       width = 40,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "frip_zygotes.pdf"),
+       plot = p_frip,
+       device = "pdf",
+       units = "mm",
+       width = 40,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "n_genes_zygotes.pdf"),
+       plot = p_genes_rna,
+       device = "pdf",
+       units = "mm",
+       width = 40,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "rna_count_zygotes.pdf"),
+       plot = p_count_rna,
+       device = "pdf",
+       units = "mm",
+       width = 40,
+       height = 90)
+
+
+```
+
+Split by batch
+```{r qc5, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+p_count2 <- ggplot(subset(seurat@meta.data, filtering == 'pass'), 
+                  aes(x=orig.ident, y=frequency_count, fill=orig.ident)) + 
+                  geom_boxplot(outlier.shape = NA, position = position_dodge(width = 0.8)) +  # Boxplot
+                  geom_jitter(color = "black", size = 1, width = 0.2) +  # Add jitter for points
+                  labs(title = "Unique fragments per cell zygotes") +
+                  stat_summary(fun = median, geom = 'point', size = 2, colour = "black") +  # Median point
+                  theme_classic() +
+                  theme(legend.position = "none") +
+                  scale_fill_manual(values = c(mypal[3], mypal[3]))
+  
+print(p_count2)
+
+
+p_frip2 <- ggplot(subset(seurat@meta.data, filtering == 'pass'), 
+                  aes(x=orig.ident, y=FRiP, fill=orig.ident)) + 
+                  geom_boxplot(outlier.shape = NA, position = position_dodge(width = 0.8)) +  # Boxplot
+                  geom_jitter(color = "black", size = 1, width = 0.2) +  # Add jitter for points
+                  labs(title = "FRiP zygotes") +
+                  stat_summary(fun = median, geom = 'point', size = 2, colour = "black") +  # Median point
+                  theme_classic() +
+                  theme(legend.position = "none") +
+                  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+                  scale_fill_manual(values = c(mypal[3], mypal[3]))
+  
+print(p_frip2)
+
+
+p_count_rna2 <- ggplot(subset(seurat@meta.data, filtering == 'pass'), 
+                  aes(x=orig.ident, y=nCount_RNA, fill=orig.ident)) + 
+                  geom_boxplot(outlier.shape = NA, position = position_dodge(width = 0.8)) +  # Boxplot
+                  geom_jitter(color = "black", size = 1, width = 0.2) +  # Add jitter for points
+                  labs(title = "Unique reads per cell zygotes") +
+                  stat_summary(fun = median, geom = 'point', size = 2, colour = "black") +  # Median point
+                  theme_classic() +
+                  theme(legend.position = "none") +
+                  scale_fill_manual(values = c(mypal[1], mypal[1]))
+  
+print(p_count_rna2)
+
+
+p_genes_rna2 <- ggplot(subset(seurat@meta.data, filtering == 'pass'), 
+                  aes(x=orig.ident, y=nFeature_RNA, fill=orig.ident)) + 
+                  geom_boxplot(outlier.shape = NA, position = position_dodge(width = 0.8)) +  # Boxplot
+                  geom_jitter(color = "black", size = 1, width = 0.2) +  # Add jitter for points
+                  labs(title = "Unique genes per cell zygotes") +
+                  stat_summary(fun = median, geom = 'point', size = 2, colour = "black") +  # Median point
+                  theme_classic() +
+                  theme(legend.position = "none") +
+                  scale_fill_manual(values = c(mypal[1], mypal[1]))
+  
+print(p_genes_rna2)
+
+
+```
+```{r save2, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "fragments_zygotes2.pdf"),
+       plot = p_count2,
+       device = "pdf",
+       units = "mm",
+       width = 70,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "frip_zygotes2.pdf"),
+       plot = p_frip2,
+       device = "pdf",
+       units = "mm",
+       width = 70,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "n_genes_zygotes2.pdf"),
+       plot = p_genes_rna2,
+       device = "pdf",
+       units = "mm",
+       width = 70,
+       height = 90)
+
+ggsave(file.path(outputDir_plots, "rna_count_zygotes2.pdf"),
+       plot = p_count_rna2,
+       device = "pdf",
+       units = "mm",
+       width = 70,
+       height = 90)
+
+
+```
+
+### DNA to RNA reads scatter plots
+```{r qc_scatter, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+seurat_f <- subset(seurat, subset = filtering == "pass")
+
+frags_to_rna_reads <- ggplot(seurat_f@meta.data, aes(x = frequency_count, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique RNA reads",
+                                title = "N unique DNA fragments vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+frags_to_genes <- ggplot(seurat_f@meta.data, aes(x = frequency_count, y = nFeature_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique DNA fragments",
+                                  y =  "N unique genes",
+                                title = "N unique DNA fragments vs. N unique genes") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+
+genes_to_rna_reads <- ggplot(seurat_f@meta.data, aes(x = nFeature_RNA, y = nCount_RNA, color = orig.ident)) +
+                             geom_point(alpha = 1, stroke = 0, size = 2) +  
+                             labs(x = "N unique genes",
+                                  y =  "N unique RNA reads",
+                                title = "N unique genes vs. N unique RNA reads") +
+                              theme_classic() +
+                              scale_color_manual(values = c(mypal[3], mypal[2]))
+frags_to_rna_reads
+frags_to_genes
+genes_to_rna_reads
+
+```
+```{r save_scatter, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "frags_to_rna_reads.pdf"),
+       plot = frags_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+
+ggsave(file.path(outputDir_plots, "genes_to_rna_reads.pdf"),
+       plot = genes_to_rna_reads,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+
+ggsave(file.path(outputDir_plots, "grags_to_genes.pdf"),
+       plot = frags_to_genes,
+       device = "pdf",
+       units = "mm",
+       width = 100,
+       height = 70)
+```
+
+## Correlation with the bulk
+### Correlation matrix - pseudobulk level
+```{r correlation, message=F, warning=F}
+
+spearman <-cor(matrix_500kb[, c("bulk_h3k27me3_5", "bulk_h3k27me3_6", "zygote_h3k27me3_4", "zygote_h3k27me3_5", "fgo_h3k27ac_1", "fgo_h3k27ac_2")], method="spearman")
+
+p_corr_pb <- pheatmap(
+    spearman,
+    display_numbers = TRUE,
+    number_color = "white",
+    color = colorRampPalette(rev(brewer.pal(n = 8, name = "RdYlBu")))(10),
+    main = "Spearman correlation 0.5Mb"
+)
+print(p_corr_pb)
+
+
+# Calculating associated p-values
+cols <- c("bulk_h3k27me3_5", "bulk_h3k27me3_6", "zygote_h3k27me3_4", 
+          "zygote_h3k27me3_5", "fgo_h3k27ac_1", "fgo_h3k27ac_2")
+data <- matrix_500kb[, cols]
+
+n <- ncol(data)
+spearman <- matrix(NA, n, n, dimnames = list(cols, cols))
+p_values <- matrix(NA, n, n, dimnames = list(cols, cols))
+
+for (i in 1:n) {
+  for (j in i:n) {
+    test <- cor.test(data[, i], data[, j], method = "spearman")
+    spearman[i, j] <- test$estimate
+    spearman[j, i] <- test$estimate # Correlation is symmetric
+    p_values[i, j] <- test$p.value
+    p_values[j, i] <- test$p.value
+  }
+}
+
+print(spearman)
+print(p_values)
+
+```
+
+```{r save3, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "p_corr_pb.pdf"),
+       plot = p_corr_pb,
+       device = "pdf",
+       units = "mm",
+       width = 130,
+       height = 120)
+
+```
+
+ 
+### Scatter plots - pseudobulk level
+```{r scatter_plots, message=F, warning=F}
+
+create_plot <- function(data, x, y, xlim, ylim) {
+  ggplot(data, aes_string(x = x, y = y)) +
+    geom_pointdensity(adjust = 1) +
+    scale_y_log10() +
+    scale_color_viridis_c(option = "magma") +
+    theme_bw() +
+    xlim(xlim) + 
+    ylim(ylim) +
+    theme(legend.position = "none")
+}
+
+
+plot_aesthetics <- list(
+  list(x = "zygote_h3k27me3_5+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_1+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_2+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_1+1", y = "bulk_h3k27me3_6+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_2+1", y = "bulk_h3k27me3_6+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_2+1", y = "fgo_h3k27ac_1+1", xlim = c(1, 1.3), ylim = c(1, 1.3))
+)
+
+
+plots <- lapply(plot_aesthetics, function(aes) {
+  create_plot(matrix_500kb, aes$x, aes$y, aes$xlim, aes$ylim)
+})
+
+
+plots_with_placeholders <- c(
+  plots[1:5], list(nullGrob()), plots[6:9], list(nullGrob(), nullGrob()),
+  plots[10:12], list(nullGrob(), nullGrob(), nullGrob()),
+  plots[13:14], list(nullGrob(), nullGrob(), nullGrob(), nullGrob()), 
+  plots[15]
+)
+
+combined_plots <- arrangeGrob(grobs = plots_with_placeholders, ncol = 5)
+grid.draw(combined_plots)
+
+```
+
+```{r save4, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "scatter_plots.pdf"),
+       plot = combined_plots,
+       device = "pdf",
+       units = "mm",
+       width = 350,
+       height = 350)
+
+ggsave(file.path(outputDir_plots, "scatter_plots.png"),
+       plot = combined_plots,
+       device = "png",
+       units = "mm",
+       width = 350,
+       height = 350)
+
+```
+
+
+### Correlation matrix - single cell level
+```{r correlation2, message=F, warning=F}
+
+spearman2 <-cor(matrix_500kb[, c("bulk_h3k27me3_5", "bulk_h3k27me3_6", "zygote_h3k27me3_4", "zygote_h3k27me3_5", "fgo_h3k27ac_1", "fgo_h3k27ac_2",
+                                "zygote_h3k27me3_4_cell1", "zygote_h3k27me3_4_cell2", "zygote_h3k27me3_4_cell3", "zygote_h3k27me3_4_cell4",
+                                "zygote_h3k27me3_5_cell1", "zygote_h3k27me3_5_cell3", "zygote_h3k27me3_5_cell4","zygote_h3k27me3_5_cell6",
+                                "zygote_h3k27me3_5_cell7", "zygote_h3k27me3_5_cell8")], method="spearman")
+
+p_corr2 <- pheatmap(
+    spearman2,
+    display_numbers = TRUE,
+    number_color = "white",
+    color = colorRampPalette(rev(brewer.pal(n = 8, name = "RdYlBu")))(10),
+    main = "Spearman correlation 0.5Mb"
+)
+print(p_corr2)
+
+## zygote_h3k27me3_5_cell4 is the best
+
+```
+
+```{r save5, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "p_corr_with_single_cell.pdf"),
+       plot = p_corr2,
+       device = "pdf",
+       units = "mm",
+       width = 230,
+       height = 220)
+
+```
+
+
+### Scatter plots - single cell level
+```{r scatter_plots2, message=F, warning=F}
+
+### All plots 
+plot_aesthetics <- list(
+  list(x = "zygote_h3k27me3_4_cell1+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "zygote_h3k27me3_4+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "zygote_h3k27me3_5+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "zygote_h3k27me3_4+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "zygote_h3k27me3_5+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "zygote_h3k27me3_5+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "bulk_h3k27me3_5+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_1+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "bulk_h3k27me3_6+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_1+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_2+1", y = "bulk_h3k27me3_5+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  
+  list(x = "fgo_h3k27ac_1+1", y = "bulk_h3k27me3_6+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  list(x = "fgo_h3k27ac_2+1", y = "bulk_h3k27me3_6+1", xlim = c(1, 1.3), ylim = c(1, 1.3)),
+  
+  list(x = "fgo_h3k27ac_2+1", y = "fgo_h3k27ac_1+1", xlim = c(1, 1.3), ylim = c(1, 1.3))
+)
+
+plots <- lapply(plot_aesthetics, function(aes) {
+  create_plot(matrix_500kb, aes$x, aes$y, aes$xlim, aes$ylim)
+})
+
+plots_with_placeholders <- c(
+  plots[1:7], list(nullGrob()), 
+  plots[8:13], list(nullGrob(), nullGrob()), 
+  plots[14:18], list(nullGrob(), nullGrob(), nullGrob()), 
+  plots[19:22], list(nullGrob(), nullGrob(), nullGrob(), nullGrob()),
+  plots[23:25], list(nullGrob(), nullGrob(), nullGrob(), nullGrob(), nullGrob()),
+  plots[26:27], list(nullGrob(), nullGrob(), nullGrob(), nullGrob(), nullGrob(), nullGrob()),
+  plots[28]
+)
+
+combined_plots2 <- arrangeGrob(grobs = plots_with_placeholders, ncol = 7)
+grid::grid.draw(combined_plots2)
+
+
+```
+
+### Selected scatter plots for the main figure
+```{r scatter_plots2_2, message=F, warning=F}
+
+plot_aesthetics_selected <- list(
+  list(x = "zygote_h3k27me3_5_cell4+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 2.5), ylim = c(1, 2.5)),
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_4_cell1+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "bulk_h3k27me3_6+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  list(x = "fgo_h3k27ac_2+1", y = "zygote_h3k27me3_5_cell4+1", xlim = c(1, 1.3), ylim = c(1, 2.5)),
+  
+  list(x = "fgo_h3k27ac_2+1", y = "bulk_h3k27me3_6+1", xlim = c(1, 1.3), ylim = c(1, 1.3))
+)
+
+plots_selected <- lapply(plot_aesthetics_selected, function(aes) {
+  create_plot(matrix_500kb, aes$x, aes$y, aes$xlim, aes$ylim)
+})
+
+plots_with_placeholders_selected <- c(
+  plots_selected[1:3], 
+  list(nullGrob()), 
+  plots_selected[4:5], 
+  list(nullGrob(), nullGrob()), 
+  plots_selected[6]
+)
+
+combined_plots_selected <- arrangeGrob(grobs = plots_with_placeholders_selected, ncol = 3)
+grid::grid.draw(combined_plots_selected)
+```
+
+
+```{r save6, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "scatter_plots_with_sc.pdf"),
+       plot = combined_plots2,
+       device = "pdf",
+       units = "mm",
+       width = 420,
+       height = 420)
+
+ggsave(file.path(outputDir_plots, "scatter_plots_with_sc.png"),
+       plot = combined_plots2,
+       device = "png",
+       units = "mm",
+       width = 420,
+       height = 420)
+
+ggsave(file.path(outputDir_plots, "scatter_plots_with_sc_main.pdf"),
+       plot = combined_plots_selected,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 200)
+
+```
+
+
+## Represenative tracks
+The tracks are plotted for one of the two batches (batch 2), for pseudobulk and for the best cell.
+A region on the chromosome X encompassing the Xist gene is shown in 1.5 Mb and 10 Mb resolutions. 
+
+```{r subset, message=F, warning=F}
+
+seurat_zygote5 <- subset(seurat, subset = orig.ident == "L548_Zygote_5_rH3K27me3")
+max_cell <- subset(seurat_zygote5, subset = frequency_count == max(seurat_zygote5@meta.data[["frequency_count"]]))
+
+DefaultAssay(seurat_zygote5) <- "bin_50k"
+DefaultAssay(max_cell) <- "bin_50k"
+```
+
+### Region 1 - 1.5 Mb
+```{r track1, message=F, warning=F}
+roi="chrX-103062837-104397109"
+
+cov_plot_k27 <- CoveragePlot(
+  object = seurat_zygote5,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000,
+  extend.upstream = 0,
+  extend.downstream = 0
+) + scale_fill_manual(values = c(mypal[3], mypal[3]))
+cov_plot_k27[[1]][["data"]][["group"]] <- "pseudobulk_k27me3"
+
+
+cov_plot_k27_max <- CoveragePlot(
+  object = max_cell,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 10000,
+  extend.upstream = 0,
+  extend.downstream = 0
+) + ggtitle("H3K27me3") + scale_fill_manual(values = c(mypal[3], mypal[3]))
+cov_plot_k27_max[[1]][["data"]][["group"]] <- "max_cell_k27me3"
+
+
+gene_plot <- AnnotationPlot(
+  object = seurat_zygote5,
+  region = roi
+)
+
+coverage_bulk_k27me3 <- BigwigTrack(
+                     bigwig = bw_paths[["bulk_h3k27me3_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[3]) +
+                     theme(legend.position = "none")
+coverage_bulk_k27me3[["data"]][["bw"]] <- "bulk_k27me3"
+
+
+coverage_bulk_k27ac <- BigwigTrack(
+                     bigwig = bw_paths[["bulk_h3k27ac_fgo"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[11]) +
+                     theme(legend.position = "none")
+coverage_bulk_k27ac[["data"]][["bw"]] <- "bulk_k27ac"
+
+
+coverage_pseudobulk_rna <- BigwigTrack(
+                     bigwig = bw_paths[["pseudobulk_rna_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_pseudobulk_rna[["data"]][["bw"]] <- "pseudobulk_rna"
+
+coverage_max_cell_rna <- BigwigTrack(
+                     bigwig = bw_paths[["max_cell_rna_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_max_cell_rna[["data"]][["bw"]] <- "max_cell_rna"
+
+
+p <- CombineTracks(plotlist = list(coverage_max_cell_rna, coverage_pseudobulk_rna,
+                                   cov_plot_k27_max, cov_plot_k27,
+                                   coverage_bulk_k27me3, coverage_bulk_k27ac, gene_plot),
+                    heights = c(15,15,15,15, 15, 15, 8)) & 
+                    theme(axis.title.y = element_text(size = 7))
+p
+
+```
+
+```{r save7, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "zygote_tracks_1.pdf"),
+       plot = p,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "zygote_tracks_1.png"),
+       plot = p,
+       device = "png",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+```
+
+ Gene expression inside region 1.
+
+```{r gene_expression, message=F, warning=F, fig.show="hold", out.width="50%"}
+
+genes <- c("Chic1", "Rlim", "Abcb7")
+DefaultAssay(seurat) <- "RNA"
+
+g1 <- VlnPlot(seurat, "Chic1", assay = "RNA", pt.size = 2) +
+              stat_summary(fun.y = median, geom='point', size = 3, colour = "black") +
+              scale_fill_manual(values = mypal[10]) +
+              theme(legend.position = "none")
+
+g1 <- ggplot(g1[[1]][["data"]], aes(x=ident, y=Chic1)) + 
+             geom_boxplot(fill=mypal[1]) +
+             geom_dotplot(binaxis='y', stackdir='center') +
+             theme_classic() + 
+             labs(title = "Chic1") +
+             theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))
+
+g2 <- VlnPlot(seurat, "Rlim", assay = "RNA", pt.size = 2) +
+              stat_summary(fun.y = median, geom='point', size = 3, colour = "black") +
+              scale_fill_manual(values = mypal[10]) +
+              theme(legend.position = "none")
+
+g2 <- ggplot(g2[[1]][["data"]], aes(x=ident, y=Rlim)) + 
+             geom_boxplot(fill=mypal[1]) +
+             geom_dotplot(binaxis='y', stackdir='center') +
+             theme_classic() + 
+             labs(title = "Rlim") +
+             theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))
+
+g3 <- VlnPlot(seurat, "Abcb7", assay = "RNA", pt.size = 2) +
+              stat_summary(fun.y = median, geom='point', size = 3, colour = "black") +
+              scale_fill_manual(values = mypal[10]) +
+              theme(legend.position = "none")
+
+g3 <- ggplot(g3[[1]][["data"]], aes(x=ident, y=Abcb7)) + 
+             geom_boxplot(fill=mypal[1]) +
+             geom_dotplot(binaxis='y', stackdir='center') +
+             theme_classic() + 
+             labs(title = "Abcb7") +
+             theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))
+
+g1
+g2
+g3
+
+```
+```{r save8, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "gene1.pdf"),
+       plot = g1,
+       device = "pdf",
+       units = "mm",
+       width = 30,
+       height = 80)
+ggsave(file.path(outputDir_plots, "gene2.pdf"),
+       plot = g2,
+       device = "pdf",
+       units = "mm",
+       width = 30,
+       height = 80)
+ggsave(file.path(outputDir_plots, "gene3.pdf"),
+       plot = g3,
+       device = "pdf",
+       units = "mm",
+       width = 30,
+       height = 80)
+```
+
+
+### Region 2 - 10 Mb
+Not included to html because of memory restraints.
+```{r track2, message=F, warning=F, eval=F}
+roi="chrX-97709266-108383451"
+
+cov_plot_k27_2 <- CoveragePlot(
+  object = seurat_zygote5,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 20000,
+  extend.upstream = 0,
+  extend.downstream = 0
+) + scale_fill_manual(values = c(mypal[3], mypal[3]))
+cov_plot_k27_2[[1]][["data"]][["group"]] <- "pseudobulk_k27me3"
+
+cov_plot_k27_max_2 <- CoveragePlot(
+  object = max_cell,
+  region = roi,
+  annotation = FALSE,
+  peaks = FALSE,
+  window = 20000,
+  extend.upstream = 0,
+  extend.downstream = 0
+) + ggtitle("H3K27me3") + scale_fill_manual(values = c(mypal[3], mypal[3]))
+cov_plot_k27_max_2[[1]][["data"]][["group"]] <- "max_cell_k27me3"
+
+gene_plot_2 <- AnnotationPlot(
+  object = seurat_zygote5,
+  region = roi
+)
+
+coverage_max_cell_rna_2 <- BigwigTrack(
+                     bigwig = bw_paths[["max_cell_rna_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_max_cell_rna_2[["data"]][["bw"]] <- "max_cell_rna"
+
+coverage_pseudobulk_rna_2 <- BigwigTrack(
+                     bigwig = bw_paths[["pseudobulk_rna_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_pseudobulk_rna_2[["data"]][["bw"]] <- "pseudobulk_rna"
+
+coverage_bulk_k27me3_2 <- BigwigTrack(
+                     bigwig = bw_paths[["bulk_h3k27me3_zygotes"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[3]) +
+                     theme(legend.position = "none")
+coverage_bulk_k27me3_2[["data"]][["bw"]] <- "bulk_k27me3"
+
+
+coverage_bulk_k27ac_2 <- BigwigTrack(
+                     bigwig = bw_paths[["bulk_h3k27ac_fgo"]],
+                     region = roi,
+                     smooth = 10000,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[11]) +
+                     theme(legend.position = "none")
+coverage_bulk_k27ac_2[["data"]][["bw"]] <- "bulk_k27ac"
+
+p2 <- CombineTracks(plotlist = list(coverage_max_cell_rna_2, coverage_pseudobulk_rna_2,
+                                   cov_plot_k27_max_2, cov_plot_k27_2,
+                                   coverage_bulk_k27me3_2, coverage_bulk_k27ac_2, gene_plot_2),
+                    heights = c(15,15,15,15, 15, 15, 8)) & 
+                    theme(axis.title.y = element_text(size = 7))
+p2
+```
+
+```{r save9, message=F, warning=F, eval=F}
+
+ggsave(file.path(outputDir_plots, "zygote_tracks_2.pdf"),
+       plot = p2,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+ggsave(file.path(outputDir_plots, "zygote_tracks_2.png"),
+       plot = p2,
+       device = "png",
+       units = "mm",
+       width = 200,
+       height = 100)
+
+```
+
+
+### Region 3 - zoom on a gene
+
+```{r track3, message=F, warning=F}
+roi="chrX-103955870-103982384"
+
+coverage_max_cell_rna_3 <- BigwigTrack(
+                     bigwig = bw_paths[["max_cell_rna_zygotes"]],
+                     region = roi,
+                     smooth = 200,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_max_cell_rna_3[["data"]][["bw"]] <- "max_cell_rna"
+
+coverage_pseudobulk_rna_3 <- BigwigTrack(
+                     bigwig = bw_paths[["pseudobulk_rna_zygotes"]],
+                     region = roi,
+                     smooth = 200,
+                     type = "coverage",
+                     y_label = "Normalised signal") +
+                     scale_fill_manual(values = mypal[1]) +
+                     theme(legend.position = "none")
+coverage_pseudobulk_rna_3[["data"]][["bw"]] <- "pseudobulk_rna"
+
+gene_plot_3 <- AnnotationPlot(
+  object = seurat_zygote5,
+  region = roi
+)
+
+p3 <- CombineTracks(plotlist = list(coverage_max_cell_rna_3,
+                                    coverage_pseudobulk_rna_3,
+                                    gene_plot_3),
+                    heights = c(15,15, 8)) & 
+                    theme(axis.title.y = element_text(size = 7))
+
+p3
+
+```
+
+```{r save10, message=F, warning=F, eval=F} 
+
+ggsave(file.path(outputDir_plots, "zoom_track_on_rlim.pdf"),
+       plot = p3,
+       device = "pdf",
+       units = "mm",
+       width = 200,
+       height = 80)
+```
+
