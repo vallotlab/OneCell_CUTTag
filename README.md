@@ -43,16 +43,6 @@ The **input** folder should be created by the user and organized as follows :
 │   │   │           └── fragmentFiles
 │   │   │               ├── L497_L551_MM468_rH3K27me3.fragments.tsv.gz
 │   │   │               └── L497_L551_MM468_rH3K27me3.fragments.tsv.gz.tbi
-│   │   ├── one_cell_multiome
-│   │   │   ├── flash
-│   │   │   │   └── 10XlikeMatrix_umi
-│   │   │   │       ├── barcodes.tsv
-│   │   │   │       ├── genes.tsv
-│   │   │   │       └── matrix.mtx
-│   │   │   └── h3k27me3
-│   │   │       └── fragmentFiles
-│   │   │           ├── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz
-│   │   │           └── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz.tbi
 │   │   ├── sc_chicseq
 │   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
