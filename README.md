@@ -43,6 +43,16 @@ The **input** folder should be created by the user and organized as follows :
 │   │   │           └── fragmentFiles
 │   │   │               ├── L497_L551_MM468_rH3K27me3.fragments.tsv.gz
 │   │   │               └── L497_L551_MM468_rH3K27me3.fragments.tsv.gz.tbi
+│   │   ├── one_cell_multiome
+│   │   │   ├── flash
+│   │   │   │   └── 10XlikeMatrix_umi
+│   │   │   │       ├── barcodes.tsv
+│   │   │   │       ├── genes.tsv
+│   │   │   │       └── matrix.mtx
+│   │   │   └── h3k27me3
+│   │   │       └── fragmentFiles
+│   │   │           ├── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz
+│   │   │           └── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz.tbi
 │   │   ├── sc_chicseq
 │   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
@@ -67,18 +77,32 @@ The **input** folder should be created by the user and organized as follows :
 │   │       │       └── matrix.mtx
 │   │       └── h3k4me1
 │   │           └── fragmentFiles
-│   │               ├── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz
-│   │               ├── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz.tbi
 │   │               ├── L547_Untreated-BC152_rH3K4me1.fragments.tsv.gz
 │   │               └── L547_Untreated-BC152_rH3K4me1.fragments.tsv.gz.tbi
-│   └── frozen_PDX
-│       └── one_cell_cuttag
+│   ├── frozen_PDX
+│   │   └── one_cell_cuttag
+│   │       └── h3k4me1
+│   │           └── fragmentFiles
+│   │               ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz
+│   │               ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz.tbi
+│   │               ├── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz
+│   │               └── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz.tbi
+│   └── persisters
+│       ├── bigwigs
+│       │   ├── D1863T0511_coverage.bw
+│       │   └── D1863_Persister_h3k4me1_RNA_pseudobulk.bw
+│       └── one_cell_multiome
+│           ├── facs
+│           │   └── MultiOme_FACSdata_l547_3000.csv
+│           ├── flash
+│           │   └── 10XlikeMatrix_umi
+│           │       ├── barcodes.tsv
+│           │       ├── genes.tsv
+│           │       └── matrix.mtx
 │           └── h3k4me1
 │               └── fragmentFiles
-│                   ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz
-│                   ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz.tbi
-│                   ├── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz
-│                   └── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz.tbi
+│                   ├── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz
+│                   └── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz.tbi
 └── mm10
     ├── mouse_mammary_gland
     │   ├── bigwigs
@@ -149,9 +173,9 @@ The **scripts** folder contains the following files:
 .
 ├── 1.1_technique_comparison.Rmd
 ├── 1.2_sample_type_comparison.Rmd
-├── 2.1_multiome_mm468.Rmd
-├── 2.2_multiome_zygotes.Rmd
-├── 2.3_multiome_mouse_mammary_gland.Rmd
+├── 2.1_multiome_mouse_mammary_gland.Rmd
+├── 2.2_multiome_persisters.Rmd
+├── 2.3_multiome_zygotes.Rmd
 ├── functions.Rmd
 └── global_variables.Rmd
 
