@@ -137,9 +137,11 @@ The **input** folder should be created by the user and organized as follows :
                     └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
 ```
 
-- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be downloaded from GEO (**GSE290486**).
-- The bigwigs produced outside of this stufy (bulk CUT&Tag for the MM468 cell line and STARR-ChIP H3K27Ac for a full grown oocyte) can be dowwnloaded from figshare (**XXX**).
+- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be directly downloaded from GEO (**GSE290486**).
 - The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
+- The two bigwigs of the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, GSE217970: STARR- 
+  ChIP H3K27Ac for a full grown oocyte). 
+
 \
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
