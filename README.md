@@ -156,6 +156,7 @@ The **input** folder should be created by the user and organized as follows :
 - The two bigwigs of the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, GSE217970: STARR- 
   ChIP H3K27Ac for a full grown oocyte). 
 \
+\
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
 
 ## 2. Dependencies
