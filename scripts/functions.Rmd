@@ -44,7 +44,7 @@ plot_weighted_hist = function(seurat, assay = DefaultAssay(seurat)) {
     count_column <- "nFeature_RNA"
     fill="gold"
   } else {
-    count_column <- "reads_count"
+    count_column <- "frequency_count"
     fill="lightskyblue2"
   }
   
