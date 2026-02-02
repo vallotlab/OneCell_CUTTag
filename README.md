@@ -228,8 +228,8 @@ The **scripts** folder contains the following files:
 .
 ├── 1.1_technique_comparison.Rmd
 ├── 1.2_multiome_MM468.rmd
-├── 1.3_sample_type_comparison.Rmd
 ├── 2.1_multiome_zygotes.Rmd
+├── 2.2_sample_type_comparison.Rmd
 ├── 3.1_multiome_mouse_mammary_gland_preprocessing.qmd
 ├── 3.2_multiome_mouse_mammary_gland_analysis.qmd
 ├── 4.1_multiome_transplantations_preprocessing.qmd
