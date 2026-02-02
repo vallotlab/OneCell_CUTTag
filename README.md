@@ -171,12 +171,16 @@ The **scripts** folder contains the following files:
 ```
 .
 ├── 1.1_technique_comparison.Rmd
-├── 1.2_sample_type_comparison.Rmd
-├── 2.1_multiome_mouse_mammary_gland.Rmd
-├── 2.2_multiome_persisters.Rmd
-├── 2.3_multiome_zygotes.Rmd
+├── 1.2_multiome_MM468.rmd
+├── 1.3_sample_type_comparison.Rmd
+├── 2.1_multiome_zygotes.Rmd
+├── 3.1_multiome_mouse_mammary_gland_preprocessing.qmd
+├── 3.2_multiome_mouse_mammary_gland_analysis.qmd
+├── 4.1_multiome_transplantations_preprocessing.qmd
+├── 4.2_multiome_transplantations_analysis.qmd
 ├── functions.Rmd
 └── global_variables.Rmd
+
 
 ```
 The scripts are organised per analysis and can be run independently from each other. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
