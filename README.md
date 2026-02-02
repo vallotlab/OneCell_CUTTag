@@ -1,6 +1,6 @@
 # OneCell_CUT&Tag
 
-This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2025** paper (pubmed ID: **XXXX**).
+This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2026** paper (Pubmed ID: **XXXX**).
 \
 Please, read the information below for the scripts description and reproducibility instructions.
 
@@ -33,26 +33,24 @@ The **input** folder should be created by the user and organized as follows :
 │   │   ├── bigwigs
 │   │   │   └── MM468_ATCC_hu_WT_AM_m10y22_H3K27me3.bw
 │   │   ├── one_cell_cuttag
-│   │   │   ├── auto
-│   │   │   │   └── h3k27me3
-│   │   │   │       └── fragmentFiles
-│   │   │   │           ├── L536_MM468_H3K27me3_pA150.fragments.tsv.gz
-│   │   │   │           └── L536_MM468_H3K27me3_pA150.fragments.tsv.gz.tbi
-│   │   │   └── manual
-│   │   │       └── h3k27me3
-│   │   │           └── fragmentFiles
-│   │   │               ├── L497_L551_MM468_rH3K27me3.fragments.tsv.gz
-│   │   │               └── L497_L551_MM468_rH3K27me3.fragments.tsv.gz.tbi
+│   │   │   └── h3k27me3
+│   │   │       └── fragmentFiles
+│   │   │           ├── L589_MM468_H3K27me3_subsampled46.fragments.tsv.gz
+│   │   │           └── L589_MM468_H3K27me3_subsampled46.fragments.tsv.gz.tbi
 │   │   ├── one_cell_multiome
 │   │   │   ├── flash
+│   │   │   │   ├── 10XlikeMatrix_read
+│   │   │   │   │   ├── barcodes.tsv
+│   │   │   │   │   ├── genes.tsv
+│   │   │   │   │   └── matrix.mtx
 │   │   │   │   └── 10XlikeMatrix_umi
 │   │   │   │       ├── barcodes.tsv
 │   │   │   │       ├── genes.tsv
 │   │   │   │       └── matrix.mtx
 │   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
-│   │   │           ├── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz
-│   │   │           └── L537_MM468_rH3K27me3_rNano150.fragments.tsv.gz.tbi
+│   │   │           ├── L589_MM-K27.fragments.tsv.gz
+│   │   │           └── L589_MM-K27.fragments.tsv.gz.tbi
 │   │   ├── sc_chicseq
 │   │   │   └── h3k27me3
 │   │   │       └── fragmentFiles
@@ -68,93 +66,151 @@ The **input** folder should be created by the user and organized as follows :
 │   │           └── fragmentFiles
 │   │               ├── N59N64_MM468BC_K27me3.fragments.tsv.gz
 │   │               └── N59N64_MM468BC_K27me3.fragments.tsv.gz.tbi
-│   ├── fresh_PDX
-│   │   └── one_cell_multiome
-│   │       ├── flash
-│   │       │   └── 10XlikeMatrix_umi
-│   │       │       ├── barcodes.tsv
-│   │       │       ├── genes.tsv
-│   │       │       └── matrix.mtx
-│   │       └── h3k4me1
-│   │           └── fragmentFiles
-│   │               ├── L547_Untreated-BC152_rH3K4me1.fragments.tsv.gz
-│   │               └── L547_Untreated-BC152_rH3K4me1.fragments.tsv.gz.tbi
-│   ├── frozen_PDX
-│   │   └── one_cell_cuttag
-│   │       └── h3k4me1
-│   │           └── fragmentFiles
-│   │               ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz
-│   │               ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz.tbi
-│   │               ├── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz
-│   │               └── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz.tbi
-│   └── persisters
-│       ├── bigwigs
-│       │   ├── D1863T0511_coverage.bw
-│       │   └── D1863_Persister_h3k4me1_RNA_pseudobulk.bw
-│       └── one_cell_multiome
-│           ├── facs
-│           │   └── MultiOme_FACSdata_l547_3000.csv
-│           ├── flash
-│           │   └── 10XlikeMatrix_umi
-│           │       ├── barcodes.tsv
-│           │       ├── genes.tsv
-│           │       └── matrix.mtx
+│   └── frozen_PDX
+│       └── one_cell_cuttag
 │           └── h3k4me1
 │               └── fragmentFiles
-│                   ├── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz
-│                   └── L547_Persister-BC152_rH3K4me1.fragments.tsv.gz.tbi
+│                   ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz
+│                   ├── L512_PDX_BC152_P1_H3K4me1.fragments.tsv.gz.tbi
+│                   ├── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz
+│                   └── L512_PDX_BC152_P3_H3K4me1.fragments.tsv.gz.tbi
 └── mm10
     ├── mouse_mammary_gland
-    │   ├── bigwigs
-    │   │   ├── D1888_CRE3-Mice8724_T0290_basal_cell.bw
-    │   │   ├── D1888_CRE3-Mice8724_T0302_luminal_cell.bw
-    │   │   ├── D1888_CRE3-Mice8724_all_rna_pseudobulk.bw
-    │   │   ├── D1888_CRE3-Mice8724_cluster_0_rna_basal.bw
-    │   │   ├── D1888_CRE3-Mice8724_cluster_1_rna_luminal.bw
-    │   │   ├── D1888_CRE3-Mice8724_h3k27me3_pseudobulk_rna.bw
-    │   │   └── D1888_CRE3-Mice8724_h3k4me1_pseudobulk_rna.bw
     │   └── one_cell_multiome
-    │       ├── facs
-    │       │   └── MultiOme_FACSdata_l539.csv
     │       ├── flash
-    │       │   └── 10XlikeMatrix_umi
+    │       │   ├── D1888_10XlikeMatrix_read
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   ├── D1888_10XlikeMatrix_umi
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   ├── N173_10XlikeMatrix_read
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   ├── N173_10XlikeMatrix_umi
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   ├── P108_10XlikeMatrix_read
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   └── P108_10XlikeMatrix_umi
     │       │       ├── barcodes.tsv
     │       │       ├── genes.tsv
     │       │       └── matrix.mtx
     │       ├── h3k27me3
     │       │   └── fragmentFiles
     │       │       ├── L539_CRE3-Mice8724_rH3K27me3_rNano150.fragments.tsv.gz
-    │       │       └── L539_CRE3-Mice8724_rH3K27me3_rNano150.fragments.tsv.gz.tbi
-    │       └── h3k4me1
-    │           └── fragmentFiles
-    │               ├── L539_CRE3-Mice8724_rH3K4me1_rNano150.fragments.tsv.gz
-    │               └── L539_CRE3-Mice8724_rH3K4me1_rNano150.fragments.tsv.gz.tbi
+    │       │       ├── L539_CRE3-Mice8724_rH3K27me3_rNano150.fragments.tsv.gz.tbi
+    │       │       ├── N167_CreN-9451-6m-Epith-HV-pA-K27.fragments.tsv.gz
+    │       │       ├── N167_CreN-9451-6m-Epith-HV-pA-K27.fragments.tsv.gz.tbi
+    │       │       ├── N168_CreN-9603-3m-Epith-HV-pA-K27.fragments.tsv.gz
+    │       │       ├── N168_CreN-9603-3m-Epith-HV-pA-K27.fragments.tsv.gz.tbi
+    │       │       ├── N253_CREneg_p1234_H3K27me3.fragments.tsv.gz
+    │       │       └── N253_CREneg_p1234_H3K27me3.fragments.tsv.gz.tbi
+    │       ├── h3k4me1
+    │       │   └── fragmentFiles
+    │       │       ├── L539_CRE3-Mice8724_rH3K4me1_rNano150.fragments.tsv.gz
+    │       │       ├── L539_CRE3-Mice8724_rH3K4me1_rNano150.fragments.tsv.gz.tbi
+    │       │       ├── N167_CreN-9451-6m-Epith-HV-pA-K4.fragments.tsv.gz
+    │       │       ├── N167_CreN-9451-6m-Epith-HV-pA-K4.fragments.tsv.gz.tbi
+    │       │       ├── N168_CreN-9603-3m-Epith-HV-pA-K4.fragments.tsv.gz
+    │       │       ├── N168_CreN-9603-3m-Epith-HV-pA-K4.fragments.tsv.gz.tbi
+    │       │       ├── N253_CREneg_p1234_H3K4me1.fragments.tsv.gz
+    │       │       └── N253_CREneg_p1234_H3K4me1.fragments.tsv.gz.tbi
+    │       └── metadata
+    │           ├── CREneg_exp1_3_metadata.csv
+    │           └── CREneg_exp4_5_metadata.csv
+    ├── transplantations
+    │   └── one_cell_multiome
+    │       ├── flash
+    │       │   ├── 10XlikeMatrix_read
+    │       │   │   ├── barcodes.tsv
+    │       │   │   ├── genes.tsv
+    │       │   │   └── matrix.mtx
+    │       │   └── 10XlikeMatrix_umi
+    │       │       ├── barcodes.tsv
+    │       │       ├── genes.tsv
+    │       │       └── matrix.mtx
+    │       ├── fragmentFiles
+    │       │   ├── N232_p1-Day0-BCP13-cell.fragments.tsv.gz
+    │       │   ├── N232_p1-Day0-BCP13-cell.fragments.tsv.gz.tbi
+    │       │   ├── N232_p2-Day0-BCP13-cell.fragments.tsv.gz
+    │       │   ├── N232_p2-Day0-BCP13-cell.fragments.tsv.gz.tbi
+    │       │   ├── N232_p2-Day0-BCP13-cell.fragments_primary.tsv.gz
+    │       │   ├── N232_p2-Day0-BCP13-cell.fragments_primary.tsv.gz.tbi
+    │       │   ├── N232_p3-Day0-LCP11-cell.fragments.tsv.gz
+    │       │   ├── N232_p3-Day0-LCP11-cell.fragments.tsv.gz.tbi
+    │       │   ├── N232_p4-Day0-HyP14-cell.fragments.tsv.gz
+    │       │   ├── N232_p4-Day0-HyP14-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p11-Day0-LCP11-cell.fragments.tsv.gz
+    │       │   ├── N233_p11-Day0-LCP11-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p13-Day4d5-allepithP15-cell.fragments.tsv.gz
+    │       │   ├── N233_p13-Day4d5-allepithP15-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p14-Day4d5-allepithP15-cell.fragments.tsv.gz
+    │       │   ├── N233_p14-Day4d5-allepithP15-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p5-Day4d5-BCHyLCP16-cell.fragments.tsv.gz
+    │       │   ├── N233_p5-Day4d5-BCHyLCP16-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p7-Day4d5-BCHyP15-cell.fragments.tsv.gz
+    │       │   ├── N233_p7-Day4d5-BCHyP15-cell.fragments.tsv.gz.tbi
+    │       │   ├── N233_p8-Day4d5-BCHyLCP16-cell.fragments.tsv.gz
+    │       │   ├── N233_p8-Day4d5-BCHyLCP16-cell.fragments.tsv.gz.tbi
+    │       │   ├── N242_p10-Day0-P11LC.fragments.tsv.gz
+    │       │   ├── N242_p10-Day0-P11LC.fragments.tsv.gz.tbi
+    │       │   ├── N242_p12-Day0-P14Hy.fragments.tsv.gz
+    │       │   ├── N242_p12-Day0-P14Hy.fragments.tsv.gz.tbi
+    │       │   ├── N242_p9-Day0-BCP13.fragments.tsv.gz
+    │       │   └── N242_p9-Day0-BCP13.fragments.tsv.gz.tbi
+    │       └── metadata
+    │           └── metadata_transplantations.csv
     └── zygotes
         ├── bigwigs
-        │   ├── D1535_D1480C05_cutran_zygotes_H3K27me3.bw
-        │   ├── D1888T0590_Zygote_5_cell3_RNA.bw
-        │   ├── D1888_Zygote_5_pseudobulk_RNA.bw
-        │   └── SRR22286444_starrchip_FGO_H3K27Ac.bw
-        ├── matrix_500kb
-        │   └── bw_summary_zygotes_k27me3_bulk_and_sc_oocyte_k27ac_bulk0.5Mb.tab
+        │   ├── D1535_D1480C05_H3K27me3_bulk_r1.bw
+        │   ├── D1535_D1480C06_H3K27me3_bulk_r2.bw
+        │   ├── D1888T0577_Zygote_4_rH3K27me3_pA_Cell1.bw
+        │   ├── D1888T0586_Zygote_4_rH3K4me1_pA_Cell5.bw
+        │   ├── D1888T0593_Zygote_5_rH3K27me3_pA_Cell6.bw
+        │   ├── D1888T0606_Zygote_5_rH3K4me1_pA_Cell10.bw
+        │   ├── D1888_Zygotes_all_rH3K27me3_RNA_pseudobulk.bw
+        │   ├── D1888_Zygotes_all_rH3K4me1_RNA_pseudobulk.bw
+        │   ├── GSM7645420_H3K4me1_zygote.mm10.bw
+        │   ├── GSM7645437_H3K27me3_zygote.mm10.bw
+        │   ├── L548_Zygote_4_rH3K27me3_pA_Cell1.bigwig
+        │   ├── L548_Zygote_4_rH3K4me1_pA_Cell5.bigwig
+        │   ├── L548_Zygote_5_rH3K27me3_pA_Cell6.bigwig
+        │   ├── L548_Zygote_5_rH3K4me1_pA_Cell10.bigwig
+        │   ├── L548_Zygote_rH3K27me3.bigwig
+        │   └── L548_Zygote_rH3K4me1.bigwig
+        ├── matrices
+        │   ├── bw_summary_zygotes_05mb_withRNA.tab
         └── one_cell_multiome
             ├── flash
+            │   ├── 10XlikeMatrix_read
+            │   │   ├── barcodes.tsv
+            │   │   ├── genes.tsv
+            │   │   └── matrix.mtx
             │   └── 10XlikeMatrix_umi
             │       ├── barcodes.tsv
             │       ├── genes.tsv
             │       └── matrix.mtx
-            └── h3k27me3
+            ├── h3k27me3
+            │   └── fragmentFiles
+            │       ├── L548_Zygote_rH3K27me3.fragments.tsv.gz
+            │       └── L548_Zygote_rH3K27me3.fragments.tsv.gz.tbi
+            └── h3k4me1
                 └── fragmentFiles
-                    ├── L548_Zygote_4_rH3K27me3_pA.fragments.tsv.gz
-                    ├── L548_Zygote_4_rH3K27me3_pA.fragments.tsv.gz.tbi
-                    ├── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz
-                    └── L548_Zygote_5_rH3K27me3_pA.fragments.tsv.gz.tbi
+                    ├── L548_Zygote_rH3K4me1.fragments.tsv.gz
+                    └── L548_Zygote_rH3K4me1.fragments.tsv.gz.tbi
+
 ```
 
 - Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be directly downloaded from GEO (**GSE290486**).
-- The facs data (for the mouse mammary gland dataset) and and 500kb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
-- The two bigwigs of the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, GSE217970: STARR- 
-  ChIP H3K27Ac for a full grown oocyte). 
+- The metadata files and the 0.5Mb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
+- The bigwigs for the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, ADD TACIT ). 
 \
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
