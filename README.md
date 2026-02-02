@@ -183,7 +183,7 @@ The **scripts** folder contains the following files:
 
 
 ```
-The scripts are organised per analysis and can be run independently from each other. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
+The scripts are organised per analysis blocks that and can be run independently from each other. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
 The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
 \
 \
