@@ -1,0 +1,555 @@
+---
+title: "Functions"
+author: "Anna Schwager"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Weighted histograms
+This functions plots a weighted histogram from a Seurat object. 
+```{r weighted_hist}
+#' Plot a weighted histogram of log10-transformed reads per cell
+#'
+#' This function generates a weighted histogram of log10-transformed reads per cell,
+#' with an option to switch between RNA assay (`nCount_RNA`) and chromatin assays (`reads_count`).
+#'
+#' @param seurat A Seurat object containing single-cell data.
+#' @param assay A character string indicating the assay to use. Default is the current default assay
+#'   in the Seurat object. If "RNA", the function will use the column `nCount_RNA` from the metadata,
+#'   otherwise it will use the `reads_count` column.
+#' 
+#' @return A `ggplot2` object showing a weighted histogram.
+#' 
+#' @examples
+#' # Assuming 'seurat_k27' is a Seurat object with 'reads_count' (calculated using the
+#' CountFragments function of Signac) and 'nCount_RNA' in meta.data
+#' plot_weighted_hist(seurat_k27)
+#' plot_weighted_hist(seurat_k27, assay = "RNA")
+#'
+plot_weighted_hist = function(seurat, assay = DefaultAssay(seurat)) {
+  # Determine which column to use based on the assay
+  if (assay == "RNA") {
+    count_column <- "nCount_RNA"
+    fill="lightgoldenrod"
+  } else if (assay == "RNA_features") {
+    count_column <- "nFeature_RNA"
+    fill="gold"
+  } else if (assay == "RNA_umi"){
+    count_column <- "nCount_RNA_umi"
+    fill="lightgoldenrod"
+  } else if (assay == "RNA_fl"){
+    count_column <- "nCount_RNA_fl"
+    fill="lightgoldenrod"
+  } else if (assay == "RNA_features_umi"){
+    count_column <- "nFeature_RNA_umi"
+    fill="gold"
+  } else if (assay == "RNA_features_fl"){
+    count_column <- "nFeature_RNA_fl"
+    fill="gold"
+  } else {
+    count_column <- "frequency_count"
+    fill="lightskyblue2"
+  }
+  
+  # Extract the appropriate counts from the meta data
+  counts <- seurat@meta.data[[count_column]]
+  log_counts <- log10(counts)
+  
+  # Create the plot
+  ggplot(data.frame(log_counts), aes(x=log_counts)) +
+    geom_histogram(aes(weight = log_counts), color="black", fill=fill) +
+    ylab("N barcodes") +
+    xlab("log10(reads/cell)") + 
+    theme_minimal() + 
+    theme(text = element_text(size=20))
+}
+
+```
+
+# Cell type scores 
+This function calculates the cell type scores = average expression or gene activity of a given set of reference genes for each cell
+```{r score_function, message=F, warning=F}
+
+AddCellTypeScore <- function(seurat_obj,
+                             marker_table,
+                             cell_type,
+                             assay = "SCT_fl",
+                             slot = "data",
+                             score_name = "cell_type_score") {
+  # Get marker genes for specified cell type
+  marker_genes <- marker_table %>%
+    filter(Type == cell_type) %>%
+    pull(Gene) %>%
+    unique()
+  
+  # Extract expression matrix
+  expr_matrix <- GetAssayData(seurat_obj, assay = assay, layer = slot)
+  
+  marker_genes_present <- intersect(marker_genes, rownames(expr_matrix))
+  
+  if (length(marker_genes_present) == 0) {
+    warning(paste0("No marker genes found in assay for cell type: ", cell_type))
+    seurat_obj[[score_name]] <- NA
+    return(seurat_obj)
+  }
+  
+  score_vector <- Matrix::colMeans(expr_matrix[marker_genes_present, , drop = FALSE])
+  
+  seurat_obj[[score_name]] <- score_vector
+  
+  return(seurat_obj)
+}
+
+```
+
+
+# Mouse to human conversion
+These functions convert human genes to mouse orthologs and vica versa.
+Adapted from the Biostars post of Nitin Narwade 
+
+```{r mouse_human}
+
+convert_mouse_to_human <- function(gene_list) { 
+     output = c()
+     mouse_human_genes = read.csv("https://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
+
+     for(gene in gene_list) {
+          class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name == "mouse, laboratory"))[['DB.Class.Key']]
+          if( !identical(class_key, integer(0)) ) {
+               human_genes = (mouse_human_genes %>% filter(DB.Class.Key == class_key & Common.Organism.Name=="human"))[,"Symbol"]
+               for(human_gene in human_genes) {
+                    output = rbind(c(gene, human_gene), output)
+               }
+          }
+     }
+     return (output)
+}
+
+convert_human_to_mouse <- function(gene_list) {
+    output = c()
+    mouse_human_genes = read.csv("https://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
+
+    for(gene in gene_list) {
+          class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name == "human"))[['DB.Class.Key']]
+          if( !identical(class_key, integer(0)) ) {
+            human_genes = (mouse_human_genes %>% filter(DB.Class.Key == class_key & Common.Organism.Name=="mouse, laboratory"))[,"Symbol"]
+            for(human_gene in human_genes) {
+                output = rbind(c(gene, human_gene), output)
+            }
+          }
+     }
+     return (output)
+}
+```
+
+
+# Create bigwigs per cluster 
+This function (and its helpers) exports bigwigs per cluster.
+Taken from (https://github.com/lldelisle/signac/blob/export_group_bw_rebased/R/utilities.R)
+
+```{r export_bw}
+#' Export bigwig files for groups of cells
+#'
+#' @param object A Seurat object
+#' @param assay Name of assay to use
+#' @param group.by The metadata variable used to group the cells
+#' @param idents Identities to include (defined by group.by parameter)
+#' @param normMethod Normalization method for the bigwig files. Default 'RC'.
+#' 'RC' will divide the number of fragments in a tile by the total number of
+#' fragments in the group. A scaling factor of 10^4 will be applied. 
+#' 'ncells' will divide the number of fragments in a tile by the number of cell
+#' in the group. 'none' will apply no normalization method. 
+#' A vector of values for each cell can also be passed as a metadata column
+#' name. A scaling factor of 10^4 will be applied
+#' @param tileSize The size of the tiles in the bigwig file
+#' @param minCells The minimum of cells in a group to be exported
+#' @param cutoff The maximum number of fragments in a given genomic tile
+#' @param chromosome A chromosomes vector to be exported
+#' @param outdir Directory to write output files (splitted bed and bigwigs)
+#' @param verbose Display messages
+#'
+#' @importFrom GenomicRanges GRanges slidingWindows seqlevels seqlengths coverage
+#' @importFrom IRanges IRanges
+#' @importFrom future nbrOfWorkers
+#' @importFrom future.apply future_lapply
+#' @importFrom pbapply pblapply
+#' @importFrom rtracklayer import export.bw
+#' @importFrom BiocGenerics which
+#' @importFrom S4Vectors match
+#' @importFrom Matrix sparseMatrix rowSums
+#' @importFrom SeuratObject Idents
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' ExportGroupBW(object, assay = "peaks")
+#' }
+ExportGroupBW  <- function(
+    object,
+    assay = NULL,
+    group.by = NULL,
+    idents = NULL,
+    normMethod = "RC",
+    tileSize = 100,
+    minCells = 5,
+    cutoff = NULL,
+    chromosome = NULL,
+    outdir = getwd(),
+    verbose = TRUE
+) {
+  # Check output dir
+  if (!dir.exists(outdir)){
+    dir.create(outdir, recursive = TRUE)
+  }
+  # Fragments present?
+  if (length(Fragments(object)) == 0) {
+    stop("This object does not have Fragments, cannot generate bigwig.")
+  }
+  # Restrict chromosomes if provided
+  if(!is.null(x = chromosome)){
+    seqlevels(object) <- chromosome
+  }
+  chromLengths <- seqlengths(object)
+  if (is.null(chromLengths)) {
+    stop("Object has no seqlength, bigwig coverages cannot be evaluated.")
+  }
+  availableChr <- names(chromLengths)
+  chromSizes <- GRanges(
+    seqnames = availableChr,
+    ranges = IRanges(
+      start = rep(1, length(x = availableChr)),
+      end = as.numeric(x = chromLengths)
+    )
+  )
+  assay <- SetIfNull(x = assay, y = DefaultAssay(object = object))
+  obj.groups <- GetGroups(
+    object = object,
+    group.by = group.by,
+    idents = idents
+  )
+  GroupsNames <- names(x = table(obj.groups)[table(obj.groups) > minCells])
+
+  # Warn/overwrite pre-existing .bed
+  lapply(X = GroupsNames, FUN = function(x) {
+    fn <- paste0(outdir, .Platform$file.sep, x, ".bed")
+    if (file.exists(fn)) {
+      message(sprintf("The group \"%s\" is already present in the destination folder and will be overwritten!", x))
+      file.remove(fn)
+    }
+  })
+
+  # Split fragments per group
+  SplitFragments(
+    object = object,
+    assay = assay,
+    group.by = group.by,
+    idents = idents,
+    outdir = outdir,
+    file.suffix = "",
+    append = TRUE,
+    buffer_length = 256L,
+    verbose = verbose
+  )
+
+  # Column to normalize by
+  if(!is.null(x = normMethod)) {
+    if (tolower(x = normMethod) %in% c('rc', 'ncells', 'none')){
+      normBy <- normMethod
+    } else{
+      normBy <- object[[normMethod, drop = FALSE]]
+    }
+  } else {
+    normBy <- NULL
+  }
+
+  if (verbose) message("Creating tiles")
+  tiles <- unlist(
+    x = slidingWindows(x = chromSizes, width = tileSize, step = tileSize)
+  )
+
+  if (verbose) message("Creating bigwig files at ", outdir)
+
+  # Choose apply backend
+  if (future::nbrOfWorkers() > 1) {
+    mylapply <- future.apply::future_lapply
+  } else {
+    if (isTRUE(verbose) && requireNamespace("pbapply", quietly = TRUE)) {
+      mylapply <- pbapply::pblapply
+    } else {
+      if (isTRUE(verbose) && !requireNamespace("pbapply", quietly = TRUE)) {
+        message("Package 'pbapply' not available; using base lapply (no progress bar).")
+      }
+      mylapply <- lapply
+    }
+  }
+
+  covFiles <- mylapply(
+    GroupsNames,
+    FUN = CreateBWGroup,
+    availableChr,
+    chromLengths,
+    tiles,
+    normBy,
+    tileSize,
+    normMethod,
+    cutoff,
+    outdir
+  )
+  return(covFiles)
+}
+
+# Helper: create a group bigwig
+CreateBWGroup <- function(
+    groupNamei,
+    availableChr,
+    chromLengths,
+    tiles,
+    normBy,
+    tileSize,
+    normMethod,
+    cutoff,
+    outdir
+) {
+  normMethod <- tolower(x = normMethod)
+
+  # Read group fragments (.bed) produced by SplitFragments()
+  fragi <- rtracklayer::import(
+    paste0(outdir, .Platform$file.sep, groupNamei, ".bed"),
+    format = "bed"
+  )
+
+  cellGroupi <- unique(x = fragi$name)
+
+  # Output file
+  covFile <- file.path(
+    outdir,
+    paste0(groupNamei, "-TileSize-", tileSize, "-normMethod-", normMethod, ".bw")
+  )
+
+  covList <- lapply(X = seq_along(availableChr), FUN = function(k) {
+    fragik <- fragi[seqnames(fragi) == availableChr[k], ]
+    tilesk <- tiles[BiocGenerics::which(S4Vectors::match(seqnames(tiles), availableChr[k], nomatch = 0) > 0)]
+
+    if (length(x = fragik) == 0) {
+      tilesk$reads <- 0
+    } else {
+      # Number of tiles for this chromosome
+      nTiles <- as.numeric(chromLengths[availableChr[k]]) / tileSize
+      if (nTiles %% 1 != 0) nTiles <- trunc(nTiles) + 1
+      nTiles <- as.integer(nTiles)
+
+      # Map fragment names to columns; drop non-matching
+      matchID <- S4Vectors::match(mcols(fragik)$name, cellGroupi)
+
+      # Compute start/end tile indices (1-based), clamp to [1, nTiles]
+      start_idx <- trunc((start(fragik) - 1L) / tileSize) + 1L
+      end_idx   <- trunc((end(fragik)   - 1L) / tileSize) + 1L
+      start_idx <- pmin(pmax(start_idx, 1L), nTiles)
+      end_idx   <- pmin(pmax(end_idx,   1L), nTiles)
+
+      # Keep only valid columns
+      ok <- !is.na(matchID)
+
+      if (!any(ok)) {
+        tilesk$reads <- 0
+      } else {
+        i <- c(start_idx[ok], end_idx[ok])
+        j <- rep.int(as.integer(matchID[ok]), 2L)
+
+        mat <- Matrix::sparseMatrix(
+          i = as.integer(i),
+          j = as.integer(j),
+          x = rep(1L, length(i)),
+          dims = c(nTiles, length(cellGroupi))
+        )
+
+        # Cap counts per tile if requested
+        if (!is.null(x = cutoff)) {
+          mat@x[mat@x > cutoff] <- cutoff
+        }
+
+        # Sum cells → per-tile counts
+        mat <- Matrix::rowSums(mat)
+        tilesk$reads <- mat
+
+        # Normalization
+        if (!is.null(x = normMethod)) {
+          if (normMethod == "rc") {
+            tilesk$reads <- tilesk$reads * 10^4 / length(fragi$name)
+          } else if (normMethod == "ncells") {
+            tilesk$reads <- tilesk$reads / length(cellGroupi)
+          } else if (normMethod == "none") {
+            # no-op
+          } else {
+            # vector per cell passed via metadata column
+            if (!is.null(x = normBy)) {
+              tilesk$reads <- tilesk$reads * 10^4 / sum(normBy[cellGroupi, 1])
+            }
+          }
+        }
+      }
+    }
+
+    # Convert to coverage Rle for this chromosome
+    tilesk <- coverage(tilesk, weight = tilesk$reads)[[availableChr[k]]]
+    tilesk
+  })
+
+  names(covList) <- availableChr
+  covList <- as(object = covList, Class = "RleList")
+  rtracklayer::export.bw(object = covList, con = covFile)
+  return(covFile)
+}
+
+# Set default if null
+SetIfNull <- function(x, y) {
+  if (is.null(x = x)) y else x
+}
+
+# Get vector of cell names and associated identity
+GetGroups <- function(
+    object,
+    group.by,
+    idents
+) {
+  if (is.null(x = group.by)) {
+    obj.groups <- SeuratObject::Idents(object = object)
+  } else {
+    obj.md <- object[[group.by]]
+    obj.groups <- obj.md[, 1]
+    names(obj.groups) <- rownames(x = obj.md)
+  }
+  if (!is.null(idents)) {
+    obj.groups <- obj.groups[obj.groups %in% idents]
+  }
+  return(obj.groups)
+}
+
+```
+
+
+# Correlation-based filtering adapted from ChromScape
+
+Modified ChromScape functions with Cosine distance instead of Pearson + choosing the reductions to use 
+```{r chromscape1}
+correlation_and_hierarchical_clust_scExp_cosine <- function(
+    scExp, hc_linkage = "ward.D", reduction = "PCA"){
+    
+    stopifnot(is(scExp, "SingleCellExperiment"), is.character(hc_linkage))
+    
+    if (is.null(SingleCellExperiment::reducedDim(scExp, reduction)))
+        stop(
+            "ChromSCape::correlation_and_hierarchical_clust_scExp -
+                Run PCA on the object before correlation")
+    
+    pca <- SingleCellExperiment::reducedDim(scExp, reduction)
+    pca_t <- Matrix::t(pca)   # cells × PCs
+    
+    # --- NEW: cosine similarity instead of Pearson correlation ---
+    cos_mat <- coop::cosine(pca_t)
+    
+    # convert to cosine distance
+    dist_mat <- stats::as.dist(1 - cos_mat)
+    
+    # hierarchical clustering
+    hc_cos <- stats::hclust(dist_mat, method = hc_linkage)
+    hc_cos$labels <- rep("", ncol(scExp))
+    
+    # store results
+    scExp@metadata$hc_cor <- hc_cos
+    SingleCellExperiment::reducedDim(scExp, "Cor") <- as(cos_mat, "dspMatrix")
+    
+    return(scExp)
+}
+
+```
+
+
+```{r chromscape2}
+filter_correlated_cell_scExp <- function(scExp, random_iter = 5, reduction = "PCA",
+    corr_threshold = 99, percent_correlation = 1,
+    downsample = 2500, verbose = TRUE, n_process = 250,
+    BPPARAM = BiocParallel::bpparam()){
+    if(ncol(scExp) < 5000) scExp@metadata$Unfiltered <- scExp
+    pca_t = Matrix::t(SingleCellExperiment::reducedDim(scExp, reduction))
+    correlation_values <- vector(length = random_iter)
+    corChIP <- as.matrix(SingleCellExperiment::reducedDim(scExp, "Cor"))
+    gc()
+    limitC <- 0
+    downsample = min(downsample, ncol(pca_t)) 
+    if(verbose) message("ChromSCape::filter_correlated_cell_scExp - ",
+    "Calculating correlation threshold using random matrix values...")
+    for (i in seq_len(random_iter)) {
+        random_mat <- matrix(
+            sample(pca_t[,sample(seq_len(ncol(pca_t)),
+                                 size = downsample)]), nrow = dim(pca_t)[1])
+        threshold <-
+            quantile(coop::pcor(x = random_mat, inplace = TRUE), probs = seq(0, 1, 0.01))
+        limitC <- threshold[corr_threshold + 1]
+        correlation_values[i] = limitC
+    }
+    limitC_mean = mean(correlation_values, na.rm = TRUE)
+    rm(pca_t, random_mat)
+    gc()
+    if(verbose) message("ChromSCape::filter_correlated_cell_scExp - ",
+                        "Filtering low correlated cells...")
+    
+    system.time({
+    selection_cor_filtered =  unlist(DelayedArray::blockApply(
+        corChIP, grid = DelayedArray::colAutoGrid(
+            corChIP, ncol = min(ncol(corChIP), n_process)),
+        BPPARAM = BPPARAM, verbose = FALSE, 
+        function(X) apply(X, 2, function(x) length(which(x > limitC_mean)))
+    ))
+    })
+    gc()
+    selection_cor_filtered = selection_cor_filtered > 
+        (percent_correlation * 0.01) * nrow(corChIP)
+    
+    scExp <- scExp[, selection_cor_filtered]
+    gc()
+    SingleCellExperiment::reducedDim(scExp, "Cor") = 
+        as(SingleCellExperiment::reducedDim(scExp, "Cor")[,selection_cor_filtered], "dspMatrix")
+    gc()
+
+    if(verbose) message("ChromSCape::filter_correlated_cell_scExp - ",
+                        "Re-calculating hierarchical clustering...")
+    d = stats::as.dist(1 - as.matrix(SingleCellExperiment::reducedDim(scExp,"Cor")))
+    gc()
+    hc_cor_cor_filtered <- stats::hclust(d, method = "ward.D")
+    gc()
+    hc_cor_cor_filtered$labels = rep("", ncol(scExp))
+    scExp@metadata$hc_cor = hc_cor_cor_filtered
+    gc()
+    
+    for(alt in SingleCellExperiment::altExpNames(scExp)){
+        SingleCellExperiment::reducedDim(SingleCellExperiment::altExp(scExp, alt), "Cor") = 
+            as(SingleCellExperiment::reducedDim(SingleCellExperiment::altExp(scExp, alt), "Cor")[,selection_cor_filtered], "dspMatrix")
+        d = stats::as.dist(1 - as.matrix(SingleCellExperiment::reducedDim(SingleCellExperiment::altExp(scExp, alt),"Cor")))
+        gc()
+        hc_cor_cor_filtered <- stats::hclust(d, method = "ward.D")
+        gc()
+        hc_cor_cor_filtered$labels = rep("", ncol(SingleCellExperiment::altExp(scExp, alt)))
+        SingleCellExperiment::altExp(scExp, alt)@metadata$hc_cor = hc_cor_cor_filtered
+        SingleCellExperiment::altExp(scExp, alt)@metadata$limitC = limitC_mean
+    }
+    gc()
+    
+    scExp@metadata$limitC = limitC_mean #specific to filtered scExp
+    return(scExp)
+}
+
+```
+
+
