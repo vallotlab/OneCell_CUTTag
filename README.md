@@ -210,7 +210,7 @@ The **input** folder should be created by the user and organized as follows :
 
 - Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be directly downloaded from GEO (**GSE290486**).
 - The metadata files and the 0.5Mb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
-- The bigwigs for the data produced outside of this study can be generated from the raw data deposited to GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, ADD TACIT ). 
+- The bigwigs for the data produced outside of this study can be generated from the raw data deposited to GEO (**GSE164409**: bulk H3K27me3 ChIp-seq for the MM468 cell line, **GSE235109** (GSM7645420  sample) - pseudobulk H3K4me1 TACIT for zygotes). 
 \
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
