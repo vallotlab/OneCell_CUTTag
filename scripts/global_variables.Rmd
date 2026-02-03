@@ -92,6 +92,8 @@ genome(annotations_mm10) <- "mm10"
 mypal <- pal_npg("nrc", alpha = 0.9)(10)
 mypal <- c(mypal, "#754f75", "#b079b0", "#ba8cba", "#e0d0e0")
 
+alt_pal <- pal_iterm(palette = iterm_palettes(), alpha = 0.9)(10)
+
 #scales::show_col(mypal)
 
 umap_blues = c("#D3D3D3", "#A3C5D0", "#4DBBD5E5", "#006D7F", "#00201b")
