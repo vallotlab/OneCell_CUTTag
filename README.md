@@ -237,7 +237,7 @@ The scripts are organised into independent analysis blocks (eg. 3.1 and 3.2). Th
 The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
 \
 \
-Expected output of each of the scripts can be seen in the html files in the *scripts* folder. 
+The expected output of each script is available in the **notebooks** folder, which contains the rendered Markdown documents generated from each script.
 \
 \
 The output of the scripts was used in the following figures of the article (**TO UPDATE WHEN FINAL VERSION**):
