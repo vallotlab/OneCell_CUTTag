@@ -7,7 +7,7 @@ Please, read the information below for the scripts description and reproducibili
 ## 0. Data availability
 All raw and processed files produced in this study can be downloaded from GEO (**GSE290486**). 
 Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
-Public data used in this analysis were downloaded from GEO (GSE164409: bulk ChIp-seq for the MM468 cell line, GSE217970: STARR- ChIP H3K27Ac for a full grown oocyte).
+Public data used in this analysis were downloaded from GEO (GSE164409: bulk H3K27me3 ChIP-seq for the MM468 cell line, GSE235109 (GSM7645420 sample) : H3K4me1 TACIT for zygotes).
 
 ## 1. Setup Instructions
 To reproduce the analysis, the user should create the following folder structure on their local machine : 
