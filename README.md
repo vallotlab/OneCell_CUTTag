@@ -215,15 +215,9 @@ The **input** folder should be created by the user and organized as follows :
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
 
-## 2. Dependencies
-The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
-\
-All packages required to run the code and the software versions used are listed in *scripts
-/global_variables.Rmd*. The packages should be installed before running the scripts. 
-The installation time should not exceed 40 min.
-
-## 3. Script description 
+## 2. Script description 
 The **scripts** folder contains the following files:
+
 ```
 .
 ├── 1.1_technique_comparison.Rmd
@@ -239,8 +233,8 @@ The **scripts** folder contains the following files:
 
 
 ```
-The scripts are organised per analysis blocks that and can be run independently from each other. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
-The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
+The scripts are organised into independent analysis blocks (eg. 3.1 and 3.2). The scripts within the same analysis block should be run in the designated order. 
+The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
 \
 \
 Expected output of each of the scripts can be seen in the html files in the *scripts* folder. 
@@ -252,6 +246,13 @@ The output of the scripts was used in the following figures of the article (**TO
 - 2.1_multiome_mouse_mammary_gland: Fig1 e, Fig2 bc, Ext Fig3 bcf
 - 2.2_multiome_persisters: Fig1 e, Fig2 ef
 - 2.3_multiome_zygotes: Fig1 e, Fig2 ghi, Ext Fig4 abc
+
+## 3. Dependencies
+The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
+\
+All packages required to run the code and the software versions used are listed in *scripts
+/global_variables.Rmd*. The packages should be installed before running the scripts. 
+The installation time should not exceed 40 min.
 
 ## 4. Runtime
 On a standard laptop (MacBook Pro M1, 16Gb RAM), the estimated runtime for all of the scripts does not exceed 1h.
