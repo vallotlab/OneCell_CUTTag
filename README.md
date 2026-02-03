@@ -1,6 +1,6 @@
 # OneCell_CUT&Tag
 
-This repository contains the code used for the downstream analysis and visualisation of the data from the **Mouteaux & Schwager, 2026** paper (Pubmed ID: **XXXX**).
+This repository contains the code used for the downstream analysis and visualisation of the data from the **Schwager & Mouteaux, 2026** paper (Pubmed ID: **XXXX**).
 \
 Please, read the information below for the scripts description and reproducibility instructions.
 
