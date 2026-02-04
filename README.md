@@ -20,7 +20,7 @@ To reproduce the analysis, the user should create the following folder structure
 └── scripts
 
 ```
-The **annotation**, **scripts** and **metadata** folders should be cloned from this github repository as they are.
+The **annotation** and **scripts** folders should be cloned from this github repository as they are.
 \
 The **output** folder should be created and left empty. Its subfolders and content will be ctreated automatically while running the scripts. 
 \
