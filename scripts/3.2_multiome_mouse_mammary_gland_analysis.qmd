@@ -2681,6 +2681,62 @@ p_motifs_f2_neg_k4
 
 ```
 
+
+Replot the same, but with adjusted p-values
+```{r}
+#| label: factor_2_weights_plot
+#| eval: true
+
+df_f2_k4_neg <- data.frame(
+  motif  = rownames(motif.enrichment.neg.k4$pval.adj),
+  pval_adj = motif.enrichment.neg.k4$pval.adj[, 2],
+  pval     = motif.enrichment.neg.k4$pval[, 2]
+)
+
+df_f2_k4_neg <- df_f2_k4_neg[order(df_f2_k4_neg$pval_adj), ][1:10, ]
+
+p_f2_k4_neg <- ggplot(df_f2_k4_neg,
+       aes(x = -log10(pval_adj),
+           y = reorder(motif, pval_adj, decreasing = TRUE))) +
+  geom_segment(aes(x = 0, xend = -log10(pval_adj),
+                   y = motif, yend = motif)) +
+  geom_point(size = 4, shape = 21, fill = mypal[2], colour = "black", stroke = 0.8, alpha =1) +
+  geom_vline(xintercept = -log10(0.05), linetype = "dashed") +
+  labs(
+    x = "-log10(adjusted p-value)",
+    y = NULL,
+    title = "Motif enrichment (Factor 2, -weights, H3K4me1)"
+  ) +
+  theme_classic()
+
+
+df_f2_k4_pos <- data.frame(
+  motif  = rownames(motif.enrichment.pos.k4$pval.adj),
+  pval_adj = motif.enrichment.pos.k4$pval.adj[, 2],
+  pval     = motif.enrichment.pos.k4$pval[, 2]
+)
+
+df_f2_k4_pos <- df_f2_k4_pos[order(df_f2_k4_pos$pval_adj), ][1:10, ]
+
+p_f2_k4_pos <- ggplot(df_f2_k4_pos,
+       aes(x = -log10(pval_adj),
+           y = reorder(motif, pval_adj, decreasing = TRUE))) +
+  geom_segment(aes(x = 0, xend = -log10(pval_adj),
+                   y = motif, yend = motif)) +
+  geom_point(size = 4, shape = 21, fill = mypal[2], colour = "black", stroke = 0.8, alpha =1) +
+  geom_vline(xintercept = -log10(0.05), linetype = "dashed") +
+  labs(
+    x = "-log10(adjusted p-value)",
+    y = NULL,
+    title = "Motif enrichment (Factor 2, +weights, H3K4me1)"
+  ) +
+  theme_classic()
+
+p_f2_k4_neg
+p_f2_k4_pos
+
+```
+
 ```{r}
 #| label: factor2_save
 #| eval: false
@@ -2693,14 +2749,14 @@ ggsave(file.path(outputDir_plots, "mofa_dots_f2.pdf"),
        height = 55)
 
 ggsave(file.path(outputDir_plots, "motifs_f2_pos_k4_mouse.pdf"),
-       plot = p_motifs_f2_pos_k4,
+       plot = p_f2_k4_neg,
        device = "pdf",
        units = "mm",
        width = 140,
        height = 65)
 
 ggsave(file.path(outputDir_plots, "motifs_f2_neg_k4_mouse.pdf"),
-       plot = p_motifs_f2_neg_k4,
+       plot = p_f2_k4_pos,
        device = "pdf",
        units = "mm",
        width = 140,
@@ -2756,6 +2812,60 @@ p_motifs_f7_k27_neg
 
 ```
 
+Replot the same, but with adjusted p-values
+```{r}
+#| label: factor_7_weights_plot
+#| eval: true
+
+df_f7_k4_pos <- data.frame(
+  motif  = rownames(motif.enrichment.pos.k4$pval.adj),
+  pval_adj = motif.enrichment.pos.k4$pval.adj[, 7],
+  pval     = motif.enrichment.pos.k4$pval[, 7]
+)
+
+df_f7_k4_pos <- df_f7_k4_pos[order(df_f7_k4_pos$pval_adj), ][1:10, ]
+
+p_f7_k4_pos <- ggplot(df_f7_k4_pos,
+       aes(x = -log10(pval_adj),
+           y = reorder(motif, pval_adj, decreasing = TRUE))) +
+  geom_segment(aes(x = 0, xend = -log10(pval_adj),
+                   y = motif, yend = motif)) +
+  geom_point(size = 4, shape = 21, fill = mypal[2], colour = "black", stroke = 0.8, alpha =1) +
+  geom_vline(xintercept = -log10(0.05), linetype = "dashed") +
+  labs(
+    x = "-log10(adjusted p-value)",
+    y = NULL,
+    title = "Motif enrichment (Factor 7, +weights, H3K4me1)"
+  ) +
+  theme_classic()
+
+
+df_f7_k27_neg <- data.frame(
+  motif  = rownames(motif.enrichment.neg.k27$pval.adj),
+  pval_adj = motif.enrichment.neg.k27$pval.adj[, 7],
+  pval     = motif.enrichment.neg.k27$pval[, 7]
+)
+
+df_f7_k27_neg <- df_f7_k27_neg[order(df_f7_k27_neg$pval_adj), ][1:10, ]
+
+p_f7_k27_neg <- ggplot(df_f7_k27_neg,
+       aes(x = -log10(pval_adj),
+           y = reorder(motif, pval_adj, decreasing = TRUE))) +
+  geom_segment(aes(x = 0, xend = -log10(pval_adj),
+                   y = motif, yend = motif)) +
+  geom_point(size = 4, shape = 21, fill = mypal[3], colour = "black", stroke = 0.8, alpha =1) +
+  geom_vline(xintercept = -log10(0.05), linetype = "dashed") +
+  labs(
+    x = "-log10(adjusted p-value)",
+    y = NULL,
+    title = "Motif enrichment (Factor 7, -weights, H3K27me3)"
+  ) +
+  theme_classic()
+
+p_f7_k27_neg
+p_f7_k4_pos
+
+```
 
 ```{r}
 #| label: factor7_save
@@ -2769,7 +2879,7 @@ ggsave(file.path(outputDir_plots, "mofa_dots_f7.pdf"),
        height = 60)
 
 ggsave(file.path(outputDir_plots, "motifs_f7_k4pos.pdf"),
-       plot = p_motifs_f7_k4_pos,
+       plot = p_f7_k4_pos,
        device = "pdf",
        units = "mm",
        width = 140,
@@ -2783,7 +2893,7 @@ ggsave(file.path(outputDir_plots, "motifs_f7_k27_pos.pdf"),
        height = 65)
 
 ggsave(file.path(outputDir_plots, "motifs_f7_k27_neg.pdf"),
-       plot = p_motifs_f7_k27_neg,
+       plot = p_f7_k27_neg,
        device = "pdf",
        units = "mm",
        width = 140,
