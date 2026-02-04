@@ -238,11 +238,12 @@ The **scripts** folder contains the following files:
 The scripts are organized into analysis blocks numbered 1 to 5. Each script automatically creates a corresponding subfolder within the output directory to store generated images and objects.
 Some scripts depend on the outputs of others and must be executed in a specific order: script 3.2 depends on 3.1; script 4.2 depends on 3.1 and 4.1; and script 5.1 depends on 1.2, 2.1, and 3.1. 
 \
+\
 The *functions.Rmd* and *global_variables.Rmd* scripts define shared dependencies and common utility functions. They are sourced at the beginning of each script and do not need to be executed explicitly.
-\
-\
 
-The output of the scripts is used in the following figures of the article (**TO ADD supps**):
+
+
+The output of the scripts is used in the following **figures** of the article (**TO ADD supps**):
 - 1.1_technique_comparison: Fig1c, Ext Fig2 ab
 - 1.2_multiome_MM468: Fig1 d,e
 - 2.1_multiome_zygotes: Fig2 a-h
@@ -250,18 +251,18 @@ The output of the scripts is used in the following figures of the article (**TO 
 - 4.2_multiome_transplantations_analysis: Fig4 b-j
 - 5.1_sample_type_comparison: Fig1 f
 
-\
+
 \
 The expected output of each script is available in the **notebooks** folder, which contains the rendered Markdown documents generated from each script.
-\
-\
+
 ## 3. Dependencies
 The code was run in Rstudio, using R (4.5.1) and Python (v3.10.19).
+\
 \
 R packages and software versions are listed in *scripts/global_variables.Rmd*.
 Python dependencies and software versions are listed in *snap_py310_env.yml*.
 
-Before running the scripts, the Python evironment should be created and all packages should be installed.
+Before running the scripts, the Python evironment *snap_py310_env.yml* should be created and all packages should be installed.
 The installation time should not exceed 60 min.
 
 ## 4. Runtime
