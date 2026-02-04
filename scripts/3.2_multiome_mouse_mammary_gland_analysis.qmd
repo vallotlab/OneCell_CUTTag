@@ -28,7 +28,7 @@ use_condaenv(
   required = TRUE
 )
 
-py_config()
+#py_config()
 ```
 
 ```{python}
@@ -42,9 +42,9 @@ import scanpy as sc
 import snapatac2 as snap
 import skmisc
 
-print("sys.executable:", sys.executable)
-print("scanpy:", sc.__version__)
-print("snapatac2:", snap.__version__)
+#print("sys.executable:", sys.executable)
+#print("scanpy:", sc.__version__)
+#print("snapatac2:", snap.__version__)
 
 ```
 
