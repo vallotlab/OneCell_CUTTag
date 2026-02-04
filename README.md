@@ -233,8 +233,11 @@ The **scripts** folder contains the following files:
 
 
 ```
-The scripts are organised into independent analysis blocks (eg. 3.1 and 3.2). The scripts within the same analysis block should be run in the designated order. 
-The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. Each script will create an associated sub-folders in the **output** folder to save the output images and objects.
+EXPLANATION OF THE ORDER. 
+
+each script will automatically create an associated sub-folders in the **output** folder to save the output images and objects. 
+
+The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
 \
 \
 The expected output of each script is available in the **notebooks** folder, which contains the rendered Markdown documents generated from each script.
