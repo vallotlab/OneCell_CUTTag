@@ -7,7 +7,7 @@ Please, read the information below for the scripts description and reproducibili
 ## 0. Data availability
 All raw and processed files produced in this study can be downloaded from GEO (**GSE290486**). 
 Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
-Public data used in this analysis were downloaded from GEO (GSE164409: bulk H3K27me3 ChIP-seq for the MM468 cell line, GSE235109 (GSM7645420 sample) : H3K4me1 TACIT for zygotes).
+Public data used in this analysis were downloaded from GEO (**GSE164409**: bulk H3K27me3 ChIP-seq for the MM468 cell line, **GSE235109** (GSM7645420 sample) : H3K4me1 TACIT for zygotes).
 
 ## 1. Setup Instructions
 To reproduce the analysis, the user should create the following folder structure on their local machine : 
@@ -20,7 +20,7 @@ To reproduce the analysis, the user should create the following folder structure
 └── scripts
 
 ```
-The **annotation** and **scripts** folders should be cloned from this github repository as they are.
+The **annotation**, **scripts** and **metadata** folders should be cloned from this github repository as they are.
 \
 The **output** folder should be created and left empty. Its subfolders and content will be ctreated automatically while running the scripts. 
 \
@@ -209,7 +209,8 @@ The **input** folder should be created by the user and organized as follows :
 ```
 
 - Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be directly downloaded from GEO (**GSE290486**).
-- The metadata files and the 0.5Mb signal matrix (for the zygote dataset) are available in the **metadata** folder of this repository. 
+- The metadata files are available in the **metadata** folder of this repository.
+- The 0.5Mb genomewide signal matrix (for the zygote dataset) is avilable in the folder **other**.
 - The bigwigs for the data produced outside of this study can be generated from the raw data deposited to GEO (**GSE164409**: bulk H3K27me3 ChIp-seq for the MM468 cell line, **GSE235109** (GSM7645420  sample) - pseudobulk H3K4me1 TACIT for zygotes). 
 \
 \
@@ -233,33 +234,36 @@ The **scripts** folder contains the following files:
 
 
 ```
-EXPLANATION OF THE ORDER. 
 
-each script will automatically create an associated sub-folders in the **output** folder to save the output images and objects. 
+The scripts are organized into analysis blocks numbered 1 to 5. Each script automatically creates a corresponding subfolder within the output directory to store generated images and objects.
+Some scripts depend on the outputs of others and must be executed in a specific order: script 3.2 depends on 3.1; script 4.2 depends on 3.1 and 4.1; and script 5.1 depends on 1.2, 2.1, and 3.1. 
+\
+The *functions.Rmd* and *global_variables.Rmd* scripts define shared dependencies and common utility functions. They are sourced at the beginning of each script and do not need to be executed explicitly.
+\
+\
 
-The *functions.Rmd* and *global_variables.Rmd* scripts contain the dependencies and common functions loading step. They are loaded in the beginnig of each script and do not have to be run expliciltly. 
+The output of the scripts is used in the following figures of the article (**TO ADD supps**):
+- 1.1_technique_comparison: Fig1c, Ext Fig2 ab
+- 1.2_multiome_MM468: Fig1 d,e
+- 2.1_multiome_zygotes: Fig2 a-h
+- 3.2_multiome_mouse_mammary_gland_analysis: Fig3 c-d, f-l
+- 4.2_multiome_transplantations_analysis: Fig4 b-j
+- 5.1_sample_type_comparison: Fig1 f
+
 \
 \
 The expected output of each script is available in the **notebooks** folder, which contains the rendered Markdown documents generated from each script.
 \
 \
-The output of the scripts was used in the following figures of the article (**TO UPDATE WHEN FINAL VERSION**):
-- 1.1_technique_comparison: Fig1 bc, Ext Fig2 ab
-- 1.2_sample_type_comparison: Fig1 d
-- 2.1_multiome_mouse_mammary_gland: Fig1 e, Fig2 bc, Ext Fig3 bcf
-- 2.2_multiome_persisters: Fig1 e, Fig2 ef
-- 2.3_multiome_zygotes: Fig1 e, Fig2 ghi, Ext Fig4 abc
-
 ## 3. Dependencies
-
-R dependencies vs Python dependencies
-The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
+The code was run in Rstudio, using R (4.5.1) and Python (v3.10.19).
 \
-All packages required to run the code and the software versions used are listed in *scripts
-/global_variables.Rmd*. The packages should be installed before running the scripts. 
-The installation time should not exceed 40 min.
+R packages and software versions are listed in *scripts/global_variables.Rmd*.
+Python dependencies and software versions are listed in *snap_py310_env.yml*.
+
+Before running the scripts, the Python evironment should be created and all packages should be installed.
+The installation time should not exceed 60 min.
 
 ## 4. Runtime
-On a standard laptop (MacBook Pro M1, 16Gb RAM), the estimated runtime for all of the scripts does not exceed 1h.
-
+On a standard laptop, the runtime for all of the scripts does not exceed 2h (MacBook Pro M4, 128Gb RAM) or 4h (MacBook Pro M1, 16Gb RAM).
 
