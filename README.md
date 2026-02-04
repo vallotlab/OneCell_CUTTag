@@ -251,6 +251,8 @@ The output of the scripts was used in the following figures of the article (**TO
 - 2.3_multiome_zygotes: Fig1 e, Fig2 ghi, Ext Fig4 abc
 
 ## 3. Dependencies
+
+R dependencies vs Python dependencies
 The code was run in Rstudio (R version 4.4.2) on a standard laptop running under macOS Sequoia 15.2. 
 \
 All packages required to run the code and the software versions used are listed in *scripts
