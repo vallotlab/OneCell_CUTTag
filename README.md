@@ -5,9 +5,10 @@ This repository contains the code used for the downstream analysis and visualisa
 Please, read the information below for the scripts description and reproducibility instructions.
 
 ## 0. Data availability
-All raw and processed files produced in this study can be downloaded from GEO (**GSE290486**). 
+All input and annotation data required to reproduce the analysis are deposited to Zenodo (**DOI: 10.5281/zenodo.18505452**). 
 \
-Additional annotation and metadata files are present in this repository in the **annotation** and **metadata** folders.
+The raw sequencing data are deposited in GEO (**GSE290486**). Due to recent U.S. budget cuts that have temporarily rendered GEO nonfunctional, the GEO entry currently lacks some datasets generated during the revision of the article. We will update the GEO record as soon as possible. In the meantime, all processed files required to reproduce all figures and conclusions of the study, including data generated during the revision, are available on Zenodo (**DOI: XXXXX**). The raw sequencing data is available from the authors on request. 
+\
 \
 Public data used in this analysis were downloaded from GEO (**GSE164409**: bulk H3K27me3 ChIP-seq for the MM468 cell line, **GSE235109** (GSM7645420 sample) : H3K4me1 TACIT for zygotes).
 
@@ -22,11 +23,12 @@ To reproduce the analysis, the user should create the following folder structure
 └── scripts
 
 ```
-The **annotation** and **scripts** folders should be cloned from this github repository as they are.
+The **scripts** folders should be cloned from this github repository as they are.
 \
 The **output** folder should be created and left empty. Its subfolders and content will be ctreated automatically while running the scripts. 
 \
-The **input** folder should be created by the user and organized as follows :
+The **input** and **annotation** folders should be copied directly from Zenodo (**DOI: 10.5281/zenodo.18505452**) without any modification.
+After a successful download, the input folder should have the following structure:
 
 ```
 .
@@ -209,11 +211,6 @@ The **input** folder should be created by the user and organized as follows :
                     └── L548_Zygote_rH3K4me1.fragments.tsv.gz.tbi
 
 ```
-
-- Fragment files, 10Xlike matricies and bigwigs for all datasets produced in this study can be directly downloaded from GEO (**GSE290486**).
-- The metadata files are available in the **metadata** folder of this repository.
-- The 0.5Mb genomewide signal matrix (for the zygote dataset) is avilable in the folder **other**.
-- The bigwigs for the data produced outside of this study can be generated from the raw data deposited to GEO (**GSE164409**: bulk H3K27me3 ChIp-seq for the MM468 cell line, **GSE235109** (GSM7645420  sample) - pseudobulk H3K4me1 TACIT for zygotes). 
 \
 \
 Before running the scripts, all files should be placed to the corresponding input sub-folder and named accordingly.
