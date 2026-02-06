@@ -10,8 +10,6 @@ All input and annotation data required to run the scripts are deposited to Zenod
 \
 The raw sequencing data are deposited in GEO (**GSE290486**).
 \
-*Due to recent U.S. budget cuts that have temporarily rendered GEO nonfunctional, the GEO entry currently lacks some datasets generated during the revision of the article. We will update the GEO record as soon as possible. In the meantime, all processed files required to reproduce all figures and conclusions of the study, including data generated during the revision, are available on Zenodo (DOI: 10.5281/zenodo.18505452). The raw sequencing data is available from the authors on request.*
-\
 \
 Public data used in this analysis were downloaded from GEO (**GSE164409**: bulk H3K27me3 ChIP-seq for the MM468 cell line, **GSE235109** (GSM7645420 sample) : H3K4me1 TACIT for zygotes).
 
