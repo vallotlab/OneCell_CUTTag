@@ -1174,6 +1174,148 @@ ggsave(file.path(outputDir_plots, "gene_umaps.pdf"),
 
 ```
 
+# Functional enrichment in gene-groups
+```{r cluster, message=F, warning=F}
+
+km <- kmeans(
+  umap_df[, c("UMAP1", "UMAP2")],
+  centers = 2,
+  nstart = 50
+)
+
+umap_df$cluster <- factor(km$cluster)
+
+ggplot(umap_df, aes(UMAP1, UMAP2, color = cluster)) +
+  geom_point(size = 1, alpha = 0.8) +
+  theme_classic()
+```
+
+```{r cluster_go, message=F, warning=F}
+umap_df %>%
+  group_by(cluster) %>%
+  summarise(
+    n_genes = n(),
+    mean_expr = mean(expression),
+    mean_k4 = mean(gene_activity_k4),
+    mean_k27 = mean(gene_activity_k27)
+  )
+
+umap_df <- umap_df %>%
+  mutate(
+    cluster_label = case_when(
+      cluster == 1 ~ "H3K27me3-low",
+      cluster == 2 ~ "H3K27me3-enriched"
+    )
+  )
+
+```
+
+
+```{r cluster_go2, message=F, warning=F}
+genes_cl1 <- umap_df %>%
+  filter(cluster_label == "H3K27me3-low") %>%
+  pull(gene)
+
+genes_cl2 <- umap_df %>%
+  filter(cluster_label == "H3K27me3-enriched") %>%
+  pull(gene)
+
+background_genes <- umap_df$gene
+
+ego_cl1 <- enrichGO(
+  gene = genes_cl1,
+  universe = background_genes,
+  OrgDb = org.Mm.eg.db,
+  keyType = "SYMBOL",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+ego_cl2 <- enrichGO(
+  gene = genes_cl2,
+  universe = background_genes,
+  OrgDb = org.Mm.eg.db,
+  keyType = "SYMBOL",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+ego_cl1_simpl <- simplify(
+  ego_cl1,
+  cutoff = 0.7,
+  by = "p.adjust",
+  select_fun = min
+)
+
+ego_cl2_simpl <- simplify(
+  ego_cl2,
+  cutoff = 0.7,
+  by = "p.adjust",
+  select_fun = min
+)
+```
+
+
+```{r cluster_go3, message=F, warning=F}
+df_go <- bind_rows(
+  as.data.frame(ego_cl1_simpl) %>%
+    mutate(cluster = "H3K27me3-low cluster"),
+
+  as.data.frame(ego_cl2_simpl) %>%
+    mutate(cluster = "H3K27me3-enriched cluster")
+) %>%
+  group_by(cluster) %>%
+  slice_min(p.adjust, n = 20) %>%
+  ungroup() %>%
+  mutate(
+    log10padj = -log10(p.adjust),
+    Description = forcats::fct_reorder(Description, log10padj)
+  )
+
+p_enrich <- ggplot(df_go, aes(log10padj, Description, fill = cluster)) +
+  geom_col(
+    color = "black",
+    linewidth = 0.2,
+    alpha = 0.5
+  ) +
+  facet_wrap(~ cluster, scales = "free_y") +
+  scale_fill_manual(values = c(
+    "H3K27me3-low cluster" = "grey",
+    "H3K27me3-enriched cluster" = "#005446"
+  )) +
+  theme_classic(base_size = 12) +
+  labs(
+    x = "-log10 adjusted p-value",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+p_enrich
+```
+
+```{r save_go, message=F, warning=F, eval=F}
+ggsave(file.path(outputDir_plots, "gene_umaps_enrichment.pdf"),
+       plot = p_enrich,
+       device = "pdf",
+       units = "mm",
+       width = 330,
+       height = 100)
+
+```
+
+
+
+
+
+
+
 
 # Represenative tracks
 No images for some tracks in the md, as too heavy to render. 
