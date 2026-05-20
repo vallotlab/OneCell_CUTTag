@@ -243,7 +243,7 @@ The *functions.Rmd* and *global_variables.Rmd* scripts define shared dependencie
 
 
 
-The output of the scripts is used in the following **figures** of the article (**TO ADD supps**):
+The output of the scripts is used in the following **figures** of the article :
 - 1.1_technique_comparison: **Fig 1c, Ext Fig 4b,c**
 - 1.2_multiome_MM468: **Fig1 d,e, Ext Fig 4e**
 - 2.1_multiome_zygotes: **Fig2 a-h, Ext Fig 6 a-d**
