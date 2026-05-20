@@ -244,12 +244,12 @@ The *functions.Rmd* and *global_variables.Rmd* scripts define shared dependencie
 
 
 The output of the scripts is used in the following **figures** of the article (**TO ADD supps**):
-- 1.1_technique_comparison: **Fig 1c, Ext Fig 3b,c**
-- 1.2_multiome_MM468: **Fig1 d,e, Ext Fig 3e**
-- 2.1_multiome_zygotes: **Fig2 a-h, Ext Fig 5 a-c**
-- 3.1_multiome_mouse_mammary_gland_preprocessing: **Ext Fig 6 c**
-- 3.2_multiome_mouse_mammary_gland_analysis: **Fig3 c-d, f-l, Ext Fig 6 e-h**
-- 4.1_multiome_transplantations_preprocessing: **Ext Fig 7 a**
+- 1.1_technique_comparison: **Fig 1c, Ext Fig 4b,c**
+- 1.2_multiome_MM468: **Fig1 d,e, Ext Fig 4e**
+- 2.1_multiome_zygotes: **Fig2 a-h, Ext Fig 6 a-d**
+- 3.1_multiome_mouse_mammary_gland_preprocessing: **Ext Fig 7 c**
+- 3.2_multiome_mouse_mammary_gland_analysis: **Fig3 b-h, Ext Fig 7f-h, Ext Fig 8a-c**
+- 4.1_multiome_transplantations_preprocessing: **Ext Fig 9 a**
 - 4.2_multiome_transplantations_analysis: **Fig4 b-j**
 - 5.1_sample_type_comparison: **Fig1 f**
 
