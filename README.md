@@ -1,6 +1,10 @@
 # OneCell_CUT&Tag
 
-This repository contains the code used for the downstream analysis and visualisation of the data from the **Schwager & Mouteaux, 2026** paper (Pubmed ID: **XXXX**).
+This repository contains the code used for the downstream analysis and visualisation of the data from : \
+\
+**Schwager, A., Moutaux, et al. Simultaneous single-cell profiling of chromatin, transcriptome and surface markers with OneCell CUT&Tag captures epigenomic reprogramming. Nat Biotechnol (2026)** (DOI
+https://doi.org/10.1038/s41587-026-03259-1).
+\
 \
 Please, read the information below for the scripts description and reproducibility instructions.
 
